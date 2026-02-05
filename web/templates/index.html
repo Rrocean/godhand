@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GodHand Pro - 智能指令与自动化助手</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="bg-orbit"></div>
+
+    <div class="app">
+        <header class="header">
+            <div class="brand">
+                <div class="brand-mark">
+                    <span>GH</span>
+                </div>
+                <div class="brand-text">
+                    <h1>GodHand Pro</h1>
+                    <p>智能指令与自动化助手 · 支持视觉识别与多步任务规划</p>
+                </div>
+                <div class="brand-badge">v3.0</div>
+            </div>
+
+            <div class="header-meta">
+                <div class="meta-card">
+                    <span class="meta-label">模式</span>
+                    <div class="mode-toggle" id="modeToggle">
+                        <button class="mode-btn active" data-mode="auto">自动</button>
+                        <button class="mode-btn" data-mode="command">命令</button>
+                        <button class="mode-btn" data-mode="gui">GUI</button>
+                    </div>
+                </div>
+                <div class="meta-card">
+                    <span class="meta-label">能力概览</span>
+                    <div class="capabilities">
+                        <span class="cap-chip">多步执行</span>
+                        <span class="cap-chip">可视化操作</span>
+                        <span class="cap-chip">安全确认</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="chat-wrapper">
+            <section class="chat-container" id="chatContainer">
+                <div class="message system">
+                    <div class="message-header">
+                        <div class="message-avatar">系统</div>
+                        <span>初始化</span>
+                    </div>
+                    <div class="message-content">
+                        <p>欢迎使用 GodHand Pro。我会把你的指令拆解成可执行的步骤。</p>
+                        <div class="example-block">
+                            <strong>复合指令示例</strong>
+                            <ul>
+                                <li>“打开记事本，输入 Hello World 保存到桌面”</li>
+                                <li>“打开计算器，计算 1+1 并截图”</li>
+                                <li>“在浏览器搜索 Python 教程并打开第一个结果”</li>
+                            </ul>
+                        </div>
+                        <div class="tip-block">
+                            支持：点击/输入/快捷键/滚动/等待/查找元素/截图/文件操作
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="quick-commands" id="quickCommands">
+                <button class="quick-btn" data-cmd="打开记事本，输入 Hello World">
+                    记事本输入
+                </button>
+                <button class="quick-btn" data-cmd="打开计算器，计算 1+1">
+                    计算器
+                </button>
+                <button class="quick-btn" data-cmd="截图">
+                    截图
+                </button>
+                <button class="quick-btn" data-cmd="浏览器搜索 Python 教程">
+                    搜索
+                </button>
+                <button class="quick-btn" data-cmd="创建文件夹 test">
+                    新建文件夹
+                </button>
+                <button class="quick-btn" data-cmd="打开浏览器">
+                    浏览器
+                </button>
+            </section>
+
+            <section class="input-area">
+                <div class="input-wrapper">
+                    <input
+                        type="text"
+                        id="userInput"
+                        placeholder="输入指令，例如：打开记事本并输入 Hello World"
+                        autocomplete="off"
+                    >
+                    <div class="input-actions">
+                        <button id="clearBtn" title="清空输入">清空</button>
+                        <button id="voiceBtn" title="语音输入">语音</button>
+                    </div>
+                </div>
+                <button class="send-btn" id="sendBtn">
+                    <span>发送</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9"></polygon>
+                    </svg>
+                </button>
+            </section>
+
+            <section class="status-bar">
+                <div class="status-left">
+                    <div class="status-indicator">
+                        <div class="status-dot disconnected" id="statusDot"></div>
+                        <span id="statusText">未连接</span>
+                    </div>
+                    <span class="separator">|</span>
+                    <span id="sessionInfo">Session: -</span>
+                </div>
+                <div class="status-right">
+                    <button id="historyBtn" title="历史记录">历史</button>
+                    <button id="exportBtn" title="导出记录">导出</button>
+                    <button id="settingsBtn" title="设置">设置</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>设置</h3>
+                <button class="close-btn" id="closeSettings">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-item">
+                    <label>执行模式</label>
+                    <select id="execMode">
+                        <option value="auto">自动选择</option>
+                        <option value="command">命令模式</option>
+                        <option value="gui">GUI 自动化</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>执行前确认</label>
+                    <input type="checkbox" id="confirmBeforeExec">
+                </div>
+                <div class="setting-item">
+                    <label>显示详细日志</label>
+                    <input type="checkbox" id="showDetailedLog" checked>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# GodHand - 智能命令与GUI自动化系统
+# 安装: pip install -r requirements.txt
+
+# Web 框架
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+
+# GUI 自动化
+pyautogui>=0.9.54
+pyperclip>=1.8.2
+pygetwindow>=0.0.9
+
+# 图像处理
+Pillow>=10.1.0
+opencv-python>=4.8.1
+numpy>=1.26.0
+
+# AI 模型
+google-generativeai>=0.3.0
+openai>=1.0.0
+
+# 工具
+requests>=2.31.0
