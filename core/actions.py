@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Actions - 动作定义与执行器"""
+"""Actions - [emoji]"""
 
 import os
 import sys
@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 import logging
 
-# Windows 特定功能
+# Windows [emoji]
 if sys.platform == 'win32':
     import ctypes
     try:
@@ -27,7 +27,7 @@ if sys.platform == 'win32':
 else:
     HAS_WIN32 = False
 
-# 图像处理
+# [emoji]
 try:
     import pyautogui
     import pyperclip
@@ -45,8 +45,8 @@ logger = logging.getLogger(__name__)
 
 
 class ActionType(Enum):
-    """动作类型枚举"""
-    # 应用控制
+    """[emoji]"""
+    # [emoji]
     OPEN_APP = "open_app"
     CLOSE_APP = "close_app"
     FOCUS_WINDOW = "focus_window"
@@ -54,7 +54,7 @@ class ActionType(Enum):
     MAXIMIZE_WINDOW = "maximize_window"
     LIST_WINDOWS = "list_windows"
     
-    # 鼠标操作
+    # [emoji]
     MOUSE_CLICK = "mouse_click"
     MOUSE_DOUBLE_CLICK = "mouse_double_click"
     MOUSE_RIGHT_CLICK = "mouse_right_click"
@@ -62,12 +62,12 @@ class ActionType(Enum):
     MOUSE_DRAG = "mouse_drag"
     MOUSE_SCROLL = "mouse_scroll"
     
-    # 键盘操作
+    # [emoji]
     TYPE_TEXT = "type_text"
     PRESS_KEY = "press_key"
     HOTKEY = "hotkey"
     
-    # 文件操作
+    # [emoji]
     FILE_CREATE = "file_create"
     FILE_DELETE = "file_delete"
     FILE_COPY = "file_copy"
@@ -78,7 +78,7 @@ class ActionType(Enum):
     DIR_DELETE = "dir_delete"
     DIR_LIST = "dir_list"
     
-    # 系统操作
+    # [emoji]
     SYSTEM_SHUTDOWN = "system_shutdown"
     SYSTEM_RESTART = "system_restart"
     SYSTEM_SLEEP = "system_sleep"
@@ -87,20 +87,23 @@ class ActionType(Enum):
     SYSTEM_SCREENSHOT = "system_screenshot"
     SYSTEM_CLIPBOARD = "system_clipboard"
     
-    # 浏览器
+    # [emoji]
     BROWSER_OPEN = "browser_open"
     BROWSER_SEARCH = "browser_search"
-    
-    # 流程控制
+
+    # [emoji]
+    VISUAL_ACTION = "visual_action"
+
+    # [emoji]
     WAIT = "wait"
-    
-    # 其他
+
+    # [emoji]
     UNKNOWN = "unknown"
 
 
 @dataclass
 class Action:
-    """动作定义"""
+    """[emoji]"""
     type: ActionType
     params: Dict[str, Any] = field(default_factory=dict)
     description: str = ""
@@ -116,13 +119,13 @@ class Action:
 
 
 class ActionExecutor:
-    """动作执行器"""
+    """[emoji]"""
     
     def __init__(self):
         self.results: List[Dict] = []
     
     def execute(self, action: Action) -> Dict:
-        """执行单个动作"""
+        """[emoji]"""
         start_time = time.time()
         
         result = {
@@ -133,7 +136,7 @@ class ActionExecutor:
             'execution_time': 0.0
         }
         
-        # 简单的动作处理
+        # [emoji]
         handlers = {
             ActionType.OPEN_APP: self._exec_open_app,
             ActionType.TYPE_TEXT: self._exec_type_text,
@@ -151,7 +154,7 @@ class ActionExecutor:
             if handler:
                 result = handler(action, result)
             else:
-                result['output'] = f"演示模式: {action.description}"
+                result['output'] = f"[emoji]: {action.description}"
                 result['success'] = True
         except Exception as e:
             result['error'] = str(e)
@@ -160,7 +163,7 @@ class ActionExecutor:
         return result
     
     def execute_batch(self, actions: List[Action]) -> List[Dict]:
-        """批量执行"""
+        """[emoji]"""
         return [self.execute(a) for a in actions]
     
     def _exec_open_app(self, action: Action, result: Dict) -> Dict:
@@ -168,56 +171,56 @@ class ActionExecutor:
         try:
             if sys.platform == 'win32':
                 app_map = {
-                    '计算器': 'calc.exe',
-                    '记事本': 'notepad.exe',
-                    '画图': 'mspaint.exe',
+                    '[emoji]': 'calc.exe',
+                    '[emoji]': 'notepad.exe',
+                    '[emoji]': 'mspaint.exe',
                     'cmd': 'cmd.exe',
-                    '任务管理器': 'taskmgr.exe',
+                    '[emoji]': 'taskmgr.exe',
                 }
                 cmd = app_map.get(app, app)
                 subprocess.Popen(f'start "" {cmd}', shell=True)
             result['success'] = True
-            result['output'] = f"已启动: {app}"
+            result['output'] = f"[emoji]: {app}"
         except Exception as e:
             result['error'] = str(e)
         return result
     
     def _exec_type_text(self, action: Action, result: Dict) -> Dict:
         if not HAS_PYAUTO:
-            result['error'] = 'pyautogui 未安装'
+            result['error'] = 'pyautogui [emoji]'
             return result
         try:
             text = action.params.get('text', '')
             pyperclip.copy(text)
             pyautogui.hotkey('ctrl', 'v')
             result['success'] = True
-            result['output'] = f"已输入: {text[:30]}{'...' if len(text) > 30 else ''}"
+            result['output'] = f"[emoji]: {text[:30]}{'...' if len(text) > 30 else ''}"
         except Exception as e:
             result['error'] = str(e)
         return result
     
     def _exec_press_key(self, action: Action, result: Dict) -> Dict:
         if not HAS_PYAUTO:
-            result['error'] = 'pyautogui 未安装'
+            result['error'] = 'pyautogui [emoji]'
             return result
         try:
             key = action.params.get('key', '')
             pyautogui.press(key)
             result['success'] = True
-            result['output'] = f"按键: {key}"
+            result['output'] = f"[emoji]: {key}"
         except Exception as e:
             result['error'] = str(e)
         return result
     
     def _exec_hotkey(self, action: Action, result: Dict) -> Dict:
         if not HAS_PYAUTO:
-            result['error'] = 'pyautogui 未安装'
+            result['error'] = 'pyautogui [emoji]'
             return result
         try:
             keys = action.params.get('keys', [])
             pyautogui.hotkey(*keys)
             result['success'] = True
-            result['output'] = f"快捷键: {'+'.join(keys)}"
+            result['output'] = f"[emoji]: {'+'.join(keys)}"
         except Exception as e:
             result['error'] = str(e)
         return result
@@ -227,24 +230,24 @@ class ActionExecutor:
             seconds = action.params.get('seconds', 1.0)
             time.sleep(seconds)
             result['success'] = True
-            result['output'] = f"等待 {seconds} 秒"
+            result['output'] = f"[emoji] {seconds} [emoji]"
         except Exception as e:
             result['error'] = str(e)
         return result
     
     def _exec_mouse_click(self, action: Action, result: Dict) -> Dict:
         if not HAS_PYAUTO:
-            result['error'] = 'pyautogui 未安装'
+            result['error'] = 'pyautogui [emoji]'
             return result
         try:
             x = action.params.get('x')
             y = action.params.get('y')
             if x is not None and y is not None:
                 pyautogui.click(x, y)
-                result['output'] = f"点击 ({x}, {y})"
+                result['output'] = f"[emoji] ({x}, {y})"
             else:
                 pyautogui.click()
-                result['output'] = "点击"
+                result['output'] = "[emoji]"
             result['success'] = True
         except Exception as e:
             result['error'] = str(e)
@@ -252,14 +255,14 @@ class ActionExecutor:
     
     def _exec_mouse_move(self, action: Action, result: Dict) -> Dict:
         if not HAS_PYAUTO:
-            result['error'] = 'pyautogui 未安装'
+            result['error'] = 'pyautogui [emoji]'
             return result
         try:
             x = action.params.get('x', 0)
             y = action.params.get('y', 0)
             pyautogui.moveTo(x, y, duration=0.5)
             result['success'] = True
-            result['output'] = f"移动鼠标到 ({x}, {y})"
+            result['output'] = f"[emoji] ({x}, {y})"
         except Exception as e:
             result['error'] = str(e)
         return result
@@ -271,9 +274,9 @@ class ActionExecutor:
                 filename = f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
                 screenshot.save(filename)
                 result['success'] = True
-                result['output'] = f"截图保存: {filename}"
+                result['output'] = f"[emoji]: {filename}"
             else:
-                result['error'] = 'PIL 未安装'
+                result['error'] = 'PIL [emoji]'
         except Exception as e:
             result['error'] = str(e)
         return result
@@ -285,7 +288,7 @@ class ActionExecutor:
             url = f'https://www.bing.com/search?q={encoded}'
             subprocess.Popen(f'start msedge "{url}"', shell=True)
             result['success'] = True
-            result['output'] = f"搜索: {query}"
+            result['output'] = f"[emoji]: {query}"
         except Exception as e:
             result['error'] = str(e)
         return result

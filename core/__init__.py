@@ -1,19 +1,21 @@
 """
-GodHand Core - GUI Automation Engine 🖐️
+GodHand Core - GUI Automation Engine [emoji]
 
-世界级的 GUI 自动化与命令执行系统
+[emoji] GUI [emoji]
+Version: 3.0.0-universe
 """
 
-from .ghost_v2 import GhostHandPro, ActionType, TaskStatus
+from .ghost_v3 import GhostHandPro, ActionType, TaskStatus
 from .claw_runner import CommandParser, CommandExecutor, CommandType
-from .smart_parser import SmartParser, ActionExecutor as SmartActionExecutor
+from .advanced_parser import AdvancedParser
+from .smart_parser_v2 import SmartParser, SmartActionExecutor, Action as SmartAction
 from .visual_engine import VisualEngine, UIElement, ElementType, SceneContext
 from .task_planner import TaskPlanner, PlanExecutor, ExecutionPlan, Step, StepType
 from .learning_system import LearningSystem, Demonstration, LearnedPattern
 from .element_library import ElementLibrary, ElementTemplate, CachedElement
 from .error_recovery import ErrorRecovery, ErrorType, ErrorSeverity, RecoveryResult
 
-# 可选模块 - 优雅地处理缺少的依赖
+# [emoji] - [emoji]
 try:
     from .performance_monitor import PerformanceMonitor, ExecutionMetrics
 except ImportError:
@@ -59,7 +61,8 @@ __all__ = [
     "CommandParser",
     "CommandExecutor",
     "CommandType",
-    # Smart Parser
+    # Advanced Parser / Smart Parser v2
+    "AdvancedParser",
     "SmartParser",
     "SmartActionExecutor",
     # Visual Engine
