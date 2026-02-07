@@ -1,24 +1,25 @@
 /* ============================================
-   GodHand Pro - Calm Light Theme
+   GodHand Pro - Global Command Aesthetic
    ============================================ */
 
 :root {
-    --ink: #1c1b17;
-    --ink-weak: #4b463f;
-    --ink-soft: #7b746a;
-    --paper: #f7f4ef;
-    --paper-2: #f2ede6;
-    --surface: #ffffff;
-    --surface-2: #fbf8f3;
-    --accent: #1c7c7a;
-    --accent-strong: #0f5f5c;
-    --accent-warm: #d46a47;
-    --accent-warm-strong: #b85637;
-    --accent-soft: rgba(28, 124, 122, 0.12);
-    --border: rgba(28, 28, 24, 0.1);
-    --shadow: 0 20px 45px rgba(25, 30, 35, 0.08);
+    --ink: #15120c;
+    --ink-strong: #0b0906;
+    --ink-weak: #4f473d;
+    --ink-soft: #7a7266;
+    --paper: #f7f2ea;
+    --paper-2: #efe6d8;
+    --canvas: #fcf7f0;
+    --accent: #0f766e;
+    --accent-strong: #0b4f49;
+    --accent-warm: #d97706;
+    --accent-warm-strong: #b45309;
+    --accent-soft: rgba(15, 118, 110, 0.12);
+    --border: rgba(20, 16, 12, 0.12);
+    --shadow-soft: 0 22px 60px rgba(20, 16, 12, 0.12);
+    --shadow-card: 0 14px 36px rgba(20, 16, 12, 0.1);
     --radius-lg: 18px;
-    --radius-xl: 24px;
+    --radius-xl: 26px;
 }
 
 * {
@@ -28,7 +29,7 @@
 }
 
 body {
-    font-family: "Manrope", "Noto Sans SC", sans-serif;
+    font-family: "Space Grotesk", "Noto Sans SC", sans-serif;
     background: var(--paper);
     color: var(--ink);
     min-height: 100vh;
@@ -36,25 +37,63 @@ body {
     overflow: hidden;
 }
 
-.bg-orbit {
+.ambient {
     position: fixed;
     inset: 0;
-    background:
-        radial-gradient(circle at 15% 20%, rgba(28, 124, 122, 0.15), transparent 45%),
-        radial-gradient(circle at 85% 15%, rgba(212, 106, 71, 0.18), transparent 50%),
-        radial-gradient(circle at 70% 80%, rgba(28, 124, 122, 0.12), transparent 55%);
     pointer-events: none;
     z-index: 0;
-    filter: blur(2px);
+    background: radial-gradient(circle at 15% 20%, rgba(15, 118, 110, 0.18), transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(217, 119, 6, 0.18), transparent 46%),
+        radial-gradient(circle at 70% 85%, rgba(15, 118, 110, 0.12), transparent 55%);
+}
+
+.orb {
+    position: absolute;
+    width: 380px;
+    height: 380px;
+    border-radius: 50%;
+    filter: blur(12px);
+    opacity: 0.5;
+    animation: float 18s ease-in-out infinite;
+}
+
+.orb-1 {
+    top: -120px;
+    left: -80px;
+    background: rgba(15, 118, 110, 0.28);
+}
+
+.orb-2 {
+    top: 10%;
+    right: -140px;
+    background: rgba(217, 119, 6, 0.24);
+    animation-delay: -4s;
+}
+
+.orb-3 {
+    bottom: -160px;
+    left: 35%;
+    background: rgba(15, 118, 110, 0.18);
+    animation-delay: -8s;
+}
+
+.grid {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(15, 15, 12, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 15, 12, 0.05) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.3;
+    mix-blend-mode: multiply;
 }
 
 .app {
     position: relative;
     z-index: 1;
     height: 100vh;
-    max-width: 1200px;
+    max-width: 1240px;
     margin: 0 auto;
-    padding: 24px 20px 18px;
+    padding: 26px 22px 20px;
     display: flex;
     flex-direction: column;
     gap: 18px;
@@ -66,66 +105,70 @@ body {
 .header {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 18px;
+    animation: slideDown 0.6s ease both;
 }
 
 .brand {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 16px 18px;
-    background: var(--surface);
+    gap: 18px;
+    padding: 18px 20px;
+    background: var(--canvas);
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-soft);
     border: 1px solid var(--border);
 }
 
 .brand-mark {
-    width: 54px;
-    height: 54px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-warm) 100%);
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
+    background: linear-gradient(140deg, var(--accent) 0%, var(--accent-warm) 100%);
     color: white;
     display: grid;
     place-items: center;
     font-weight: 700;
     font-size: 18px;
-    letter-spacing: 0.5px;
-    box-shadow: 0 12px 28px rgba(28, 124, 122, 0.25);
+    letter-spacing: 0.6px;
+    box-shadow: 0 16px 28px rgba(15, 118, 110, 0.28);
 }
 
 .brand-text h1 {
-    font-size: 1.8rem;
-    font-weight: 800;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
 .brand-text p {
-    font-size: 0.95rem;
+    font-size: 0.98rem;
     color: var(--ink-weak);
 }
 
 .brand-badge {
     margin-left: auto;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 999px;
     background: var(--accent-soft);
     color: var(--accent-strong);
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .header-meta {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 14px;
 }
 
 .meta-card {
-    background: var(--surface);
+    background: var(--canvas);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 14px 16px;
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-card);
     display: grid;
     gap: 10px;
 }
@@ -157,8 +200,8 @@ body {
 .mode-btn.active {
     background: var(--accent);
     color: white;
-    border-color: rgba(28, 124, 122, 0.3);
-    box-shadow: 0 8px 18px rgba(28, 124, 122, 0.25);
+    border-color: rgba(15, 118, 110, 0.35);
+    box-shadow: 0 10px 22px rgba(15, 118, 110, 0.25);
 }
 
 .capabilities {
@@ -171,9 +214,30 @@ body {
     padding: 6px 10px;
     border-radius: 999px;
     font-size: 0.78rem;
-    background: var(--surface-2);
-    border: 1px solid rgba(28, 124, 122, 0.12);
+    background: rgba(15, 118, 110, 0.08);
+    border: 1px solid rgba(15, 118, 110, 0.2);
     color: var(--accent-strong);
+}
+
+.strategy-list {
+    display: grid;
+    gap: 8px;
+}
+
+.strategy-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+    color: var(--ink-weak);
+}
+
+.strategy-item .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-warm);
+    box-shadow: 0 0 10px rgba(217, 119, 6, 0.4);
 }
 
 /* ============================================
@@ -183,10 +247,10 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: var(--surface);
+    background: var(--canvas);
     border-radius: var(--radius-xl);
     border: 1px solid var(--border);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-soft);
     overflow: hidden;
 }
 
@@ -194,7 +258,7 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 24px;
-    background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+    background: linear-gradient(180deg, var(--canvas) 0%, #f8f1e6 100%);
 }
 
 .chat-container::-webkit-scrollbar {
@@ -202,7 +266,7 @@ body {
 }
 
 .chat-container::-webkit-scrollbar-thumb {
-    background: rgba(28, 28, 24, 0.15);
+    background: rgba(20, 16, 12, 0.15);
     border-radius: 8px;
 }
 
@@ -247,20 +311,20 @@ body {
 }
 
 .message-content {
-    background: var(--surface);
+    background: var(--canvas);
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 14px 16px;
     color: var(--ink);
     font-size: 0.93rem;
-    box-shadow: 0 12px 22px rgba(25, 30, 35, 0.04);
+    box-shadow: 0 12px 22px rgba(25, 30, 35, 0.05);
 }
 
 .message-content button {
     margin-left: 6px;
     padding: 4px 10px;
-    border: 1px solid rgba(28, 124, 122, 0.2);
-    background: var(--surface-2);
+    border: 1px solid rgba(15, 118, 110, 0.2);
+    background: var(--paper-2);
     color: var(--ink);
     border-radius: 999px;
     font-size: 0.78rem;
@@ -273,8 +337,8 @@ body {
 }
 
 .message.user .message-content {
-    background: linear-gradient(135deg, rgba(28, 124, 122, 0.16), rgba(212, 106, 71, 0.12));
-    border-color: rgba(28, 124, 122, 0.2);
+    background: linear-gradient(135deg, rgba(15, 118, 110, 0.14), rgba(217, 119, 6, 0.12));
+    border-color: rgba(15, 118, 110, 0.22);
 }
 
 .loading {
@@ -305,7 +369,7 @@ body {
     gap: 8px;
     padding: 10px 14px;
     border-radius: 999px;
-    background: rgba(28, 124, 122, 0.12);
+    background: rgba(15, 118, 110, 0.12);
     color: var(--accent-strong);
     font-size: 0.85rem;
 }
@@ -332,12 +396,12 @@ body {
 }
 
 .message.system .message-content {
-    background: rgba(212, 106, 71, 0.12);
-    border-color: rgba(212, 106, 71, 0.25);
+    background: rgba(217, 119, 6, 0.1);
+    border-color: rgba(217, 119, 6, 0.2);
 }
 
 .message.error .message-content {
-    background: rgba(195, 60, 48, 0.1);
+    background: rgba(195, 60, 48, 0.08);
     border-color: rgba(195, 60, 48, 0.25);
     color: #8a2e25;
 }
@@ -345,9 +409,9 @@ body {
 .example-block {
     margin: 12px 0;
     padding: 12px 14px;
-    background: var(--surface-2);
+    background: var(--paper-2);
     border-radius: 12px;
-    border: 1px dashed rgba(28, 124, 122, 0.2);
+    border: 1px dashed rgba(15, 118, 110, 0.2);
     font-size: 0.9rem;
 }
 
@@ -359,7 +423,7 @@ body {
 .tip-block {
     margin-top: 10px;
     padding: 10px 12px;
-    background: rgba(28, 124, 122, 0.08);
+    background: rgba(15, 118, 110, 0.08);
     border-radius: 12px;
     color: var(--accent-strong);
     font-size: 0.85rem;
@@ -369,29 +433,36 @@ body {
    Quick Commands
    ============================================ */
 .quick-commands {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 10px;
-    flex-wrap: wrap;
-    padding: 14px 18px;
+    padding: 16px 18px;
     border-top: 1px solid var(--border);
-    background: var(--surface);
+    background: var(--canvas);
 }
 
 .quick-btn {
-    padding: 8px 14px;
-    border-radius: 999px;
-    border: 1px solid rgba(28, 124, 122, 0.2);
-    background: var(--surface-2);
+    padding: 10px 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(15, 118, 110, 0.2);
+    background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(217, 119, 6, 0.08));
     color: var(--ink-weak);
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .quick-btn:hover {
-    background: var(--accent);
-    color: white;
+    background: linear-gradient(135deg, rgba(15, 118, 110, 0.2), rgba(217, 119, 6, 0.14));
+    color: var(--ink);
     transform: translateY(-1px);
+}
+
+.quick-icon {
+    font-size: 1.1rem;
 }
 
 /* ============================================
@@ -402,7 +473,7 @@ body {
     gap: 12px;
     padding: 16px 18px;
     border-top: 1px solid var(--border);
-    background: var(--surface);
+    background: var(--canvas);
 }
 
 .input-wrapper {
@@ -415,15 +486,16 @@ body {
     padding: 14px 120px 14px 16px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: var(--surface-2);
+    background: var(--paper-2);
     color: var(--ink);
     font-size: 0.95rem;
     outline: none;
-    transition: border-color 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .input-wrapper input:focus {
     border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.1);
 }
 
 .input-actions {
@@ -437,7 +509,7 @@ body {
 
 .input-actions button {
     border: none;
-    background: var(--paper-2);
+    background: var(--paper);
     padding: 6px 12px;
     border-radius: 999px;
     color: var(--ink-weak);
@@ -468,7 +540,7 @@ body {
 
 .send-btn:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 12px 24px rgba(28, 124, 122, 0.25);
+    box-shadow: 0 12px 24px rgba(15, 118, 110, 0.25);
 }
 
 .send-btn:disabled {
@@ -482,7 +554,7 @@ body {
 .status-bar {
     padding: 12px 18px;
     border-top: 1px solid var(--border);
-    background: var(--surface);
+    background: var(--canvas);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -518,8 +590,8 @@ body {
 }
 
 .status-right button {
-    border: 1px solid rgba(28, 124, 122, 0.15);
-    background: var(--surface-2);
+    border: 1px solid rgba(15, 118, 110, 0.2);
+    background: var(--paper-2);
     color: var(--ink-weak);
     padding: 6px 10px;
     border-radius: 999px;
@@ -540,12 +612,12 @@ body {
     margin-top: 6px;
     padding: 12px 14px;
     border-radius: 12px;
-    font-family: "DM Mono", monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 0.82rem;
     white-space: pre-wrap;
     word-break: break-word;
-    border: 1px solid rgba(28, 124, 122, 0.2);
-    background: rgba(28, 124, 122, 0.08);
+    border: 1px solid rgba(15, 118, 110, 0.2);
+    background: rgba(15, 118, 110, 0.08);
 }
 
 .result-card.error {
@@ -573,10 +645,10 @@ body {
 .modal-content {
     width: 90%;
     max-width: 420px;
-    background: var(--surface);
+    background: var(--canvas);
     border-radius: var(--radius-xl);
     border: 1px solid var(--border);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-soft);
     overflow: hidden;
 }
 
@@ -594,7 +666,7 @@ body {
 
 .close-btn {
     border: none;
-    background: var(--surface-2);
+    background: var(--paper-2);
     border-radius: 8px;
     width: 32px;
     height: 32px;
@@ -617,7 +689,7 @@ body {
     padding: 6px 10px;
     border-radius: 8px;
     border: 1px solid var(--border);
-    background: var(--surface-2);
+    background: var(--paper-2);
 }
 
 .setting-item input[type="checkbox"] {
@@ -627,11 +699,21 @@ body {
 }
 
 /* ============================================
-   Responsive
+   Animations / Responsive
    ============================================ */
-@media (max-width: 860px) {
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
     .app {
-        padding: 16px 12px;
+        padding: 18px 14px;
     }
 
     .brand {
@@ -650,5 +732,12 @@ body {
     .send-btn {
         width: 100%;
         justify-content: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
     }
 }

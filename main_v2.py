@@ -130,7 +130,17 @@ class UnifiedExecutor:
         
         if HAS_SMART_PARSER:
             try:
-                self.parser = SmartParserV2(config_path=config_path)
+                # 初始化 LLM 客户端供 SmartParser 使用
+                llm_client = None
+                if HAS_GHOSTHAND:
+                    try:
+                        from ghost_v3 import LLMClient
+                        llm_client = LLMClient(config=self.config)
+                        logger.info("[UnifiedExecutor] LLM client initialized for SmartParser")
+                    except Exception as e:
+                        logger.warning(f"[UnifiedExecutor] LLM client init failed: {e}")
+                
+                self.parser = SmartParserV2(llm_client=llm_client, config_path=config_path)
                 self.action_executor = ActionExecutorV2()
                 logger.info("[UnifiedExecutor] SmartParser v2 initialized")
             except Exception as e:
@@ -517,7 +527,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         session_id = session_mgr.create_session()
         await websocket.send_json({
             "type": "system",
-            "content": f"✨ 新会话已创建: {session_id[:12]}..."
+            "content": f"✨ 新会话已创建: {session_id[:12]}...",
+            "session_id": session_id
         })
     
     try:

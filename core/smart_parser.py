@@ -215,8 +215,8 @@ class SmartParser:
             return actions
         
         # 模式2: 打开X 搜索Y
-        # 例如：打开浏览器 搜索Python教程
-        search_pattern = r'(打开|启动)\s*(.+?)(?:\s+然后\s+|\s+再\s+|\s+|，|,|;|；)\s*(搜索|查找|百度|google)(.+?)$'
+        # 例如：打开浏览器 搜索Python教程、打开浏览器 百度一下
+        search_pattern = r'(打开|启动)\s*(.+?)(?:\s+然后\s+|\s+再\s+|\s+|，|,|;|；)\s*(搜索|查找|百度一下|google|bing)(.+?)$'
         match = re.search(search_pattern, instruction.lower())
         if match:
             app_name = match.group(2).strip()
@@ -224,6 +224,21 @@ class SmartParser:
             
             # 如果是浏览器相关
             if any(x in app_name for x in ['浏览器', 'edge', 'chrome']):
+                # 添加打开浏览器动作
+                actions.append(Action(
+                    type=ActionType.OPEN_APP,
+                    params={'command': 'msedge', 'app_name': '浏览器'},
+                    description=f"打开浏览器",
+                    reason="用户要求打开浏览器搜索"
+                ))
+                # 添加等待
+                actions.append(Action(
+                    type=ActionType.WAIT,
+                    params={'seconds': 1.5},
+                    description="等待浏览器启动",
+                    reason="等待浏览器窗口"
+                ))
+                # 添加搜索动作
                 actions.append(Action(
                     type=ActionType.SEARCH,
                     params={'query': search_query, 'engine': 'bing'},
@@ -231,6 +246,34 @@ class SmartParser:
                     reason="用户要求搜索"
                 ))
                 return actions
+        
+        # 模式2b: 打开浏览器 百度XXX (百度作为动词+搜索词)
+        baidu_pattern = r'(打开|启动)\s*(浏览器|edge|chrome)(?:\s+|，|,|;|；)\s*百度(.+?)$'
+        match = re.search(baidu_pattern, instruction.lower())
+        if match:
+            search_query = match.group(3).strip()
+            # 打开浏览器
+            actions.append(Action(
+                type=ActionType.OPEN_APP,
+                params={'command': 'msedge', 'app_name': '浏览器'},
+                description="打开浏览器",
+                reason="用户要求打开浏览器搜索"
+            ))
+            # 等待
+            actions.append(Action(
+                type=ActionType.WAIT,
+                params={'seconds': 1.5},
+                description="等待浏览器启动",
+                reason="等待浏览器窗口"
+            ))
+            # 搜索
+            actions.append(Action(
+                type=ActionType.SEARCH,
+                params={'query': search_query, 'engine': 'bing'},
+                description=f"搜索: {search_query}",
+                reason="用户要求百度搜索"
+            ))
+            return actions
         
         # 模式3: 创建文件并写入内容
         # 例如：创建文件test.txt 写入Hello World

@@ -6,11 +6,16 @@
     <title>GodHand Pro - 智能指令与自动化助手</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div class="bg-orbit"></div>
+    <div class="ambient">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="grid"></div>
+    </div>
 
     <div class="app">
         <header class="header">
@@ -20,14 +25,14 @@
                 </div>
                 <div class="brand-text">
                     <h1>GodHand Pro</h1>
-                    <p>智能指令与自动化助手 · 支持视觉识别与多步任务规划</p>
+                    <p>全球级自动化执行引擎 · 视觉 + 命令一体化编排</p>
                 </div>
-                <div class="brand-badge">v3.0</div>
+                <div class="brand-badge">v3</div>
             </div>
 
             <div class="header-meta">
                 <div class="meta-card">
-                    <span class="meta-label">模式</span>
+                    <span class="meta-label">执行模式</span>
                     <div class="mode-toggle" id="modeToggle">
                         <button class="mode-btn active" data-mode="auto">自动</button>
                         <button class="mode-btn" data-mode="command">命令</button>
@@ -35,17 +40,31 @@
                     </div>
                 </div>
                 <div class="meta-card">
-                    <span class="meta-label">能力概览</span>
+                    <span class="meta-label">能力矩阵</span>
                     <div class="capabilities">
+                        <span class="cap-chip">多模态理解</span>
                         <span class="cap-chip">多步执行</span>
-                        <span class="cap-chip">可视化操作</span>
+                        <span class="cap-chip">视觉定位</span>
                         <span class="cap-chip">安全确认</span>
+                    </div>
+                </div>
+                <div class="meta-card">
+                    <span class="meta-label">执行策略</span>
+                    <div class="strategy-list">
+                        <div class="strategy-item">
+                            <span class="dot"></span>
+                            <span>分步验证 + 快速回滚</span>
+                        </div>
+                        <div class="strategy-item">
+                            <span class="dot"></span>
+                            <span>风险动作可选确认</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </header>
 
-        <main class="chat-wrapper">
+        <main class="chat-wrapper" id="chatWrapper">
             <section class="chat-container" id="chatContainer">
                 <div class="message system">
                     <div class="message-header">
@@ -63,7 +82,7 @@
                             </ul>
                         </div>
                         <div class="tip-block">
-                            支持：点击/输入/快捷键/滚动/等待/查找元素/截图/文件操作
+                            支持：点击 / 输入 / 快捷键 / 滚动 / 等待 / 查找元素 / 截图 / 文件操作
                         </div>
                     </div>
                 </div>
@@ -71,22 +90,28 @@
 
             <section class="quick-commands" id="quickCommands">
                 <button class="quick-btn" data-cmd="打开记事本，输入 Hello World">
-                    记事本输入
+                    <span class="quick-icon">📝</span>
+                    <span>记事本输入</span>
                 </button>
                 <button class="quick-btn" data-cmd="打开计算器，计算 1+1">
-                    计算器
+                    <span class="quick-icon">🧮</span>
+                    <span>计算器</span>
                 </button>
                 <button class="quick-btn" data-cmd="截图">
-                    截图
+                    <span class="quick-icon">📸</span>
+                    <span>截图</span>
                 </button>
                 <button class="quick-btn" data-cmd="浏览器搜索 Python 教程">
-                    搜索
+                    <span class="quick-icon">🔍</span>
+                    <span>搜索</span>
                 </button>
                 <button class="quick-btn" data-cmd="创建文件夹 test">
-                    新建文件夹
+                    <span class="quick-icon">📁</span>
+                    <span>新建文件夹</span>
                 </button>
                 <button class="quick-btn" data-cmd="打开浏览器">
-                    浏览器
+                    <span class="quick-icon">🌐</span>
+                    <span>浏览器</span>
                 </button>
             </section>
 

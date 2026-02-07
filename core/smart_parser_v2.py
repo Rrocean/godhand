@@ -184,10 +184,27 @@ class SmartParserV2:
         if instruction in self.corrections:
             instruction = self.corrections[instruction]
         
-        # 识别意图
-        intent = self._classify_intent(instruction)
+        # ===== 新模式：LLM 优先自由解析 =====
+        # 如果 LLM 可用，优先让 AI 动态理解指令
+        if HAS_LLM and self.llm:
+            actions = self._llm_parse_v2(instruction)
+            if actions and actions[0].type != ActionType.UNKNOWN:
+                intent = self._classify_intent(instruction)
+                intent.confidence = 0.9  # LLM 解析置信度高
+                
+                # 更新上下文
+                if use_context:
+                    self.context.add_command(instruction)
+                    for action in actions:
+                        if action.type == ActionType.OPEN_APP:
+                            app_name = action.params.get('app_name', '')
+                            if app_name:
+                                self.context.record_app_usage(app_name)
+                
+                return actions, intent
         
-        # 根据意图选择解析策略
+        # ===== Fallback：传统规则解析 =====
+        intent = self._classify_intent(instruction)
         actions = []
         
         if intent.category == IntentCategory.COMPOSITE:
@@ -199,16 +216,9 @@ class SmartParserV2:
         else:
             actions = self._smart_rule_parse(instruction)
         
-        # 如果规则解析失败，尝试LLM
-        if not actions and HAS_LLM and self.llm:
-            actions = self._llm_parse(instruction)
-            intent.confidence = 0.85
-        
-        # 基础规则兜底
         if not actions:
             actions = self._basic_rule_parse(instruction)
         
-        # 最终fallback
         if not actions:
             actions = [Action(
                 type=ActionType.UNKNOWN,
@@ -234,7 +244,7 @@ class SmartParserV2:
         instruction_lower = instruction.lower()
         
         # 检查是否复合指令
-        composite_markers = ['然后', '再', '接着', '之后', ',', '，', ';', '；']
+        composite_markers = ['然后', '再', '接着', '之后', '并', '且', ',', '，', ';', '；']
         if any(m in instruction for m in composite_markers):
             return ParsedIntent(
                 category=IntentCategory.COMPOSITE,
@@ -293,6 +303,129 @@ class SmartParserV2:
         actions = []
         instruction_clean = instruction.strip()
         
+        # 模式0: 在浏览器搜索XXX并打开第一个结果
+        # 匹配: "在浏览器搜索Python教程并打开第一个结果" / "搜索Python教程并打开第一个"
+        search_open_pattern = r'(?:在\s*(?:浏览器|edge|chrome)\s*)?(?:搜索|查找)\s*(.+?)\s*(?:并|然后|再)\s*打开(?:第\s*一\s*个)?(?:结果|链接)?$'
+        match = re.search(search_open_pattern, instruction_clean, re.IGNORECASE)
+        
+        if match:
+            search_query = match.group(1).strip()
+            
+            # 打开浏览器并搜索
+            actions.append(Action(
+                type=ActionType.OPEN_APP,
+                params={'command': 'msedge', 'app_name': '浏览器'},
+                description="打开浏览器",
+                reason="用户要求在浏览器中搜索",
+                confidence=0.95
+            ))
+            
+            # 等待
+            actions.append(Action(
+                type=ActionType.WAIT,
+                params={'seconds': 1.5},
+                description="等待浏览器启动",
+                reason="等待浏览器窗口出现",
+                confidence=1.0
+            ))
+            
+            # 搜索
+            actions.append(Action(
+                type=ActionType.SEARCH,
+                params={'query': search_query, 'engine': 'bing'},
+                description=f"搜索: {search_query}",
+                reason="用户要求搜索",
+                confidence=0.9
+            ))
+            
+            # 等待搜索结果加载
+            actions.append(Action(
+                type=ActionType.WAIT,
+                params={'seconds': 3.0},
+                description="等待搜索结果加载",
+                reason="等待页面完全加载",
+                confidence=1.0
+            ))
+            
+            # 点击第一个结果（使用鼠标点击典型位置）
+            # 策略：按 Escape 清除焦点 -> 滚动到顶部 -> 点击第一个结果的典型位置
+            actions.append(Action(
+                type=ActionType.PRESS_KEY,
+                params={'key': 'esc'},
+                description="退出搜索框编辑模式",
+                reason="确保焦点不在搜索框内",
+                confidence=0.9
+            ))
+            
+            actions.append(Action(
+                type=ActionType.WAIT,
+                params={'seconds': 0.5},
+                description="等待界面响应",
+                reason="等待焦点切换",
+                confidence=1.0
+            ))
+            
+            # 回到页面顶部
+            actions.append(Action(
+                type=ActionType.PRESS_KEY,
+                params={'key': 'home'},
+                description="回到页面顶部",
+                reason="确保从顶部开始导航",
+                confidence=0.9
+            ))
+            
+            actions.append(Action(
+                type=ActionType.WAIT,
+                params={'seconds': 0.3},
+                description="等待滚动完成",
+                reason="等待页面稳定",
+                confidence=1.0
+            ))
+            
+            # 使用鼠标点击第一个搜索结果的标题位置
+            # 屏幕百分比坐标：宽度 20%（避开左侧边栏），高度 30%（跳过顶部搜索栏和图片）
+            actions.append(Action(
+                type=ActionType.CLICK,
+                params={'rel_x': 0.20, 'rel_y': 0.30, 'clicks': 1},
+                description="点击第一个搜索结果",
+                reason="点击搜索结果标题位置（相对坐标，避开图片）",
+                confidence=0.85
+            ))
+            
+            return actions
+
+        # 模式1c: 在浏览器搜索XXX 并打开第一个结果
+        first_result_pattern = r'(?:在)?(?:浏览器|edge|chrome)?\s*(?:中|里)?\s*搜索\s*(.+?)\s*(?:并|然后|再|接着)?\s*打开(?:第?一|首|第1)个?结果'
+        match = re.search(first_result_pattern, instruction_clean, re.IGNORECASE)
+        if match:
+            search_query = match.group(1).strip()
+
+            actions.append(Action(
+                type=ActionType.OPEN_APP,
+                params={'command': 'msedge', 'app_name': '浏览器'},
+                description="打开浏览器",
+                reason="用户要求在浏览器中搜索",
+                confidence=0.95
+            ))
+
+            actions.append(Action(
+                type=ActionType.WAIT,
+                params={'seconds': 1.5},
+                description="等待浏览器启动",
+                reason="等待浏览器窗口出现",
+                confidence=1.0
+            ))
+
+            actions.append(Action(
+                type=ActionType.SEARCH,
+                params={'query': search_query, 'engine': 'google', 'open_first': True},
+                description=f"搜索并打开第一个结果: {search_query}",
+                reason="用户要求打开第一个搜索结果",
+                confidence=0.9
+            ))
+
+            return actions
+        
         # 模式1: 打开X 然后/再/接着 输入Y
         # 支持多种连接词和标点
         open_type_pattern = r'(?:打开|启动|运行)\s*(\S+?)\s*(?:然后|再|接着|，|,)?\s*(?:输入|填写|写入|键入)\s*(.+?)$'
@@ -332,9 +465,45 @@ class SmartParserV2:
             
             return actions
         
+        # 模式1b: 打开浏览器 搜索XXX (空格分隔的复合指令)
+        # 也支持: "用浏览器搜索XXX"
+        open_search_pattern = r'(?:(?:打开|启动|运行|用)\s*)?(?:浏览器|edge|chrome)\s+(?:搜索|查找|百度|google)\s*(.+?)$'
+        match = re.search(open_search_pattern, instruction_clean, re.IGNORECASE)
+        if match:
+            search_query = match.group(1).strip()
+            
+            # 打开浏览器
+            actions.append(Action(
+                type=ActionType.OPEN_APP,
+                params={'command': 'msedge', 'app_name': '浏览器'},
+                description="打开浏览器",
+                reason="用户要求打开浏览器搜索",
+                confidence=0.95
+            ))
+            
+            # 等待
+            actions.append(Action(
+                type=ActionType.WAIT,
+                params={'seconds': 1.5},
+                description="等待浏览器启动",
+                reason="等待浏览器窗口出现",
+                confidence=1.0
+            ))
+            
+            # 搜索
+            actions.append(Action(
+                type=ActionType.SEARCH,
+                params={'query': search_query, 'engine': 'bing'},
+                description=f"搜索: {search_query}",
+                reason="用户要求搜索",
+                confidence=0.9
+            ))
+            
+            return actions
+        
         # 模式2: 智能分割处理
-        if any(sep in instruction_clean for sep in ['然后', '再', '接着', '，', ',', '；', ';']):
-            parts = re.split(r'\s*(?:然后|再|接着|，|,|；|;)\s*', instruction_clean)
+        if any(sep in instruction_clean for sep in ['然后', '再', '接着', '并', '，', ',', '；', ';']):
+            parts = re.split(r'\s*(?:然后|再|接着|并|，|,|；|;)\s*', instruction_clean)
             
             for part in parts:
                 part = part.strip()
@@ -364,6 +533,19 @@ class SmartParserV2:
                         params={'text': text},
                         description=f"输入文字: {text[:20]}{'...' if len(text) > 20 else ''}",
                         reason="用户要求输入内容",
+                        confidence=0.9
+                    ))
+                    continue
+                
+                # 检查是否是"搜索X"格式
+                search_match = re.match(r'^(?:搜索|查找|百度|google)\s*(.+)$', part)
+                if search_match:
+                    query = search_match.group(1).strip()
+                    actions.append(Action(
+                        type=ActionType.SEARCH,
+                        params={'query': query, 'engine': 'bing'},
+                        description=f"搜索: {query}",
+                        reason="用户要求搜索",
                         confidence=0.9
                     ))
                     continue
@@ -421,6 +603,7 @@ class SmartParserV2:
         search_patterns = [
             (r'^搜索\s*(.+?)$', 'bing'),
             (r'^查找\s*(.+?)$', 'bing'),
+            (r'^(?:在)?(?:浏览器|edge|chrome)?\s*(?:中|里)?\s*搜索\s*(.+?)$', 'bing'),
         ]
         
         for pattern, engine in search_patterns:
@@ -479,7 +662,123 @@ class SmartParserV2:
         
         return f'start "" "{app_name}"'
     
+    def _llm_parse_v2(self, instruction: str) -> List[Action]:
+        """
+        增强版 LLM 解析 - 自由理解任意指令
+        让 AI 像人一样思考：理解意图 -> 拆解步骤 -> 生成动作
+        """
+        prompt = f"""你是一个 Windows 自动化助手。请将用户的自然语言指令拆解为详细的执行步骤。
+
+## 用户指令
+"{instruction}"
+
+## 执行环境
+- Windows 10/11 操作系统
+- 屏幕分辨率：1920x1080 或自适应
+- 可用工具：键盘输入、鼠标点击、快捷键、打开应用、文件操作
+
+## 可用动作类型
+1. **open_app** - 打开应用
+   - params: {{"command": "应用命令", "app_name": "应用名称"}}
+   - 常用命令: notepad(记事本), calc(计算器), mspaint(画图), msedge(Edge浏览器), chrome(Chrome), winword(Word), excel(Excel), explorer(文件资源管理器), code(VSCode), cmd(命令行)
+
+2. **type_text** - 输入文字
+   - params: {{"text": "要输入的内容"}}
+
+3. **press_key** - 按单个键
+   - params: {{"key": "键名", "count": 次数}}
+   - 常用键: enter/return, tab, esc, space, home, end, delete, backspace, 方向键(Up/Down/Left/Right)
+
+4. **hotkey** - 快捷键组合
+   - params: {{"keys": ["ctrl", "a"]}}
+   - 常用: ctrl+a(全选), ctrl+c(复制), ctrl+v(粘贴), ctrl+s(保存), ctrl+f(查找), alt+f4(关闭), alt+tab(切换窗口)
+
+5. **click** - 鼠标点击
+   - params: {{"rel_x": 0.5, "rel_y": 0.5}} 或 {{"x": 100, "y": 200}}
+   - rel_x/rel_y: 屏幕百分比坐标 (0-1)
+
+6. **wait** - 等待
+   - params: {{"seconds": 1.5}}
+
+7. **search** - 网页搜索
+   - params: {{"query": "搜索词", "engine": "bing"}}
+
+8. **file_operation** - 文件操作
+   - params: {{"operation": "mkdir/create/delete", "path": "路径", "content": "内容"}}
+
+9. **system** - 系统操作
+   - params: {{"operation": "screenshot/volume/brightness"}}
+
+## 输出要求
+请输出 JSON 数组，每个元素是一个动作。要非常详细，包含等待和过渡步骤。
+
+示例 1: "打开记事本输入Hello保存"
+```json
+[
+  {{"type": "open_app", "params": {{"command": "notepad", "app_name": "记事本"}}, "description": "打开记事本", "reason": "用户要求打开记事本"}},
+  {{"type": "wait", "params": {{"seconds": 1.0}}, "description": "等待记事本启动", "reason": "等待窗口出现"}},
+  {{"type": "type_text", "params": {{"text": "Hello"}}, "description": "输入Hello", "reason": "用户要求输入内容"}},
+  {{"type": "hotkey", "params": {{"keys": ["ctrl", "s"]}}, "description": "保存文件", "reason": "用户要求保存"}},
+  {{"type": "wait", "params": {{"seconds": 0.5}}, "description": "等待保存对话框", "reason": "等待对话框出现"}}
+]
+```
+
+示例 2: "在Excel第一行输入姓名和年龄"
+```json
+[
+  {{"type": "open_app", "params": {{"command": "excel", "app_name": "Excel"}}, "description": "打开Excel", "reason": "用户要求在Excel中操作"}},
+  {{"type": "wait", "params": {{"seconds": 2.0}}, "description": "等待Excel启动", "reason": "Excel启动较慢"}},
+  {{"type": "type_text", "params": {{"text": "姓名"}}, "description": "在A1输入姓名", "reason": "用户要求第一行输入姓名"}},
+  {{"type": "press_key", "params": {{"key": "tab"}}, "description": "移动到B1", "reason": "切换到下一个单元格"}},
+  {{"type": "type_text", "params": {{"text": "年龄"}}, "description": "在B1输入年龄", "reason": "用户要求输入年龄"}}
+]
+```
+
+## 请解析用户指令，输出动作序列：
+```json
+"""
+
+        try:
+            response = self.llm.generate(prompt, temperature=0.2)
+            
+            # 提取 JSON
+            json_match = re.search(r'\[.*\]', response, re.DOTALL)
+            if not json_match:
+                # 尝试找代码块
+                json_match = re.search(r'```json\s*(\[.*?\])\s*```', response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                else:
+                    return []
+            else:
+                json_str = json_match.group()
+            
+            data = json.loads(json_str)
+            
+            actions = []
+            for item in data:
+                action_type_str = item.get('type', 'unknown')
+                try:
+                    action_type = ActionType(action_type_str)
+                except ValueError:
+                    action_type = ActionType.UNKNOWN
+                
+                actions.append(Action(
+                    type=action_type,
+                    params=item.get('params', {}),
+                    description=item.get('description', ''),
+                    reason=item.get('reason', ''),
+                    confidence=item.get('confidence', 0.8)
+                ))
+            
+            return actions
+            
+        except Exception as e:
+            print(f"[Error] LLM解析失败: {e}")
+            return []
+
     def _llm_parse(self, instruction: str) -> Optional[List[Action]]:
+        """旧版 LLM 解析，作为 fallback"""
         prompt = f"""将用户的自然语言指令解析为可执行的动作序列。
 
 用户指令: "{instruction}"
@@ -607,13 +906,47 @@ class ActionExecutorV2:
         
         return result
     
+    def _execute_click(self, action: Action, result: Dict) -> Dict:
+        try:
+            import pyautogui
+            
+            x = action.params.get('x')
+            y = action.params.get('y')
+            rel_x = action.params.get('rel_x')
+            rel_y = action.params.get('rel_y')
+            clicks = action.params.get('clicks', 1)
+            
+            # 获取屏幕尺寸
+            screen_width, screen_height = pyautogui.size()
+            
+            # 如果提供了相对坐标，转换为绝对坐标
+            if rel_x is not None and rel_y is not None:
+                x = int(screen_width * rel_x)
+                y = int(screen_height * rel_y)
+            elif x is None or y is None:
+                # 如果没有坐标，点击屏幕中央
+                x = screen_width // 2
+                y = screen_height // 2
+            
+            pyautogui.click(x, y, clicks=clicks)
+            result['success'] = True
+            result['output'] = f"已点击: ({x}, {y}) [屏幕{screen_width}x{screen_height}]"
+        except ImportError:
+            result['error'] = '缺少 pyautogui'
+        except Exception as e:
+            result['error'] = str(e)
+        
+        return result
+    
     def _execute_press_key(self, action: Action, result: Dict) -> Dict:
         try:
             import pyautogui
             key = action.params.get('key', '')
-            pyautogui.press(key)
+            count = action.params.get('count', 1)
+            for _ in range(count):
+                pyautogui.press(key)
             result['success'] = True
-            result['output'] = f"已按键: {key}"
+            result['output'] = f"已按键: {key} x{count}" if count > 1 else f"已按键: {key}"
         except Exception as e:
             result['error'] = str(e)
         return result
@@ -642,6 +975,7 @@ class ActionExecutorV2:
         
         query = action.params.get('query', '')
         engine = action.params.get('engine', 'bing')
+        open_first = bool(action.params.get('open_first', False))
         
         encoded = urllib.parse.quote(query)
         urls = {
@@ -650,7 +984,13 @@ class ActionExecutorV2:
             'baidu': f'https://www.baidu.com/s?wd={encoded}'
         }
         
-        url = urls.get(engine, urls['bing'])
+        if open_first:
+            # 使用 Google "I'm Feeling Lucky" 直接打开首个结果
+            url = f'https://www.google.com/search?q={encoded}&btnI=I'
+            engine = 'google'
+        else:
+            url = urls.get(engine, urls['bing'])
+        
         subprocess.Popen(f'start msedge "{url}"', shell=True)
         
         result['success'] = True

@@ -180,6 +180,10 @@ class GodHandApp {
     }
 
     handleWebSocketMessage(data) {
+        if (data.session_id) {
+            this.sessionId = data.session_id;
+            this.dom.sessionInfo.textContent = `Session: ${this.sessionId.substr(0, 12)}...`;
+        }
         switch(data.type) {
             case 'system':
                 this.addSystemMessage(data.content);
@@ -237,7 +241,15 @@ class GodHandApp {
                 })
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
             const data = await response.json();
+            if (data.session_id) {
+                this.sessionId = data.session_id;
+                this.dom.sessionInfo.textContent = `Session: ${this.sessionId.substr(0, 12)}...`;
+            }
 
             if (data.actions?.length > 0) {
                 this.showActionList(data.actions, `解析出 ${data.actions.length} 个动作`);
@@ -301,7 +313,10 @@ class GodHandApp {
         if (confirmed && this.pendingCommand) {
             this.disableSendButton();
             if (this.ws?.readyState === WebSocket.OPEN) {
-                this.ws.send(JSON.stringify({ message: this.pendingCommand }));
+                this.ws.send(JSON.stringify({
+                    message: this.pendingCommand,
+                    mode: this.settings.execMode
+                }));
             } else {
                 this.sendViaHTTP(this.pendingCommand);
             }

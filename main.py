@@ -25,6 +25,7 @@ from enum import Enum
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request
+from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,6 +57,7 @@ class CommandRequest(BaseModel):
     """命令请求"""
     command: str
     session_id: Optional[str] = None
+    mode: Optional[str] = "auto"
 
 
 class CommandResponse(BaseModel):
@@ -168,8 +170,14 @@ class GodHandCore:
         if self.executor:
             try:
                 # 重建Action对象
+                action_type_value = action_dict.get('type', 'unknown')
+                try:
+                    action_type = ActionType(action_type_value)
+                except ValueError:
+                    action_type = ActionType.UNKNOWN
+
                 action = Action(
-                    type=ActionType(action_dict.get('type', 'unknown')),
+                    type=action_type,
                     params=action_dict.get('params', {}),
                     description=action_dict.get('description', ''),
                     reason=action_dict.get('reason', '')
@@ -278,41 +286,52 @@ static_dir = Path(__file__).parent / "web" / "static"
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+# 模板
+templates = Jinja2Templates(directory=str(Path(__file__).parent / "web" / "templates"))
+
 # 全局实例
 godhand = GodHandCore()
 session_mgr = SessionManager()
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index():
+async def index(request: Request):
     """主页"""
-    return HTMLResponse(content=get_html())
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.post("/api/execute")
 async def execute_command(request: CommandRequest):
     """执行命令 API - 智能版"""
+    command = (request.command or "").strip()
+    if not command:
+        raise HTTPException(status_code=400, detail="command is required")
+
+    session_id = request.session_id or session_mgr.create_session()
+
     # 解析指令
-    actions = godhand.process(request.command)
-    
+    actions = godhand.process(command)
+
     # 执行
-    results = godhand.execute_batch(actions)
-    
+    results = godhand.execute_batch(actions) if actions else []
+
     # 记录到会话
-    if request.session_id:
-        for result in results:
-            session_mgr.add_message(
-                request.session_id,
-                "assistant",
-                result['action']['description'],
-                result
-            )
-    
+    session_mgr.add_message(session_id, "user", command)
+    for result in results:
+        session_mgr.add_message(
+            session_id,
+            "assistant",
+            result.get('action', {}).get('description', ''),
+            result
+        )
+
     return {
-        "success": all(r['success'] for r in results),
-        "command": request.command,
+        "success": all(r.get('success') for r in results) if results else False,
+        "command": command,
         "actions": actions,
         "results": results,
+        "mode": request.mode or "auto",
+        "session_id": session_id,
         "timestamp": datetime.now().isoformat()
     }
 
@@ -320,13 +339,17 @@ async def execute_command(request: CommandRequest):
 @app.post("/api/chat")
 async def chat(request: CommandRequest):
     """聊天 API - 解析但不执行"""
-    actions = godhand.process(request.command)
+    command = (request.command or "").strip()
+    if not command:
+        raise HTTPException(status_code=400, detail="command is required")
+
+    actions = godhand.process(command)
     
     # 生成回复
     unknown_count = sum(1 for a in actions if a['type'] == 'unknown')
     
     if unknown_count == len(actions):
-        reply = f"🤔 我不太理解 '{request.command}'\n\n试试这些:\n"
+        reply = f"🤔 我不太理解 '{command}'\n\n试试这些:\n"
         reply += "• 打开记事本 输入Hello World\n"
         reply += "• 打开计算器\n"
         reply += "• 搜索Python教程\n"
@@ -350,14 +373,34 @@ async def chat(request: CommandRequest):
             reply += f"{i}. {emoji} {action['description']}\n"
         reply += "\n点击发送执行这些动作。"
     
-    if request.session_id:
-        session_mgr.add_message(request.session_id, "user", request.command)
-        session_mgr.add_message(request.session_id, "assistant", reply)
+    session_id = request.session_id or session_mgr.create_session()
+    session_mgr.add_message(session_id, "user", command)
+    session_mgr.add_message(session_id, "assistant", reply)
     
     return {
         "reply": reply,
         "actions": actions,
-        "session_id": request.session_id
+        "session_id": session_id
+    }
+
+
+@app.post("/api/parse")
+async def parse_command(request: CommandRequest):
+    """解析指令但不执行"""
+    command = (request.command or "").strip()
+    if not command:
+        raise HTTPException(status_code=400, detail="command is required")
+
+    actions = godhand.process(command)
+    session_id = request.session_id or session_mgr.create_session()
+    session_mgr.add_message(session_id, "user", command)
+
+    return {
+        "command": command,
+        "actions": actions,
+        "session_id": session_id,
+        "mode": request.mode or "auto",
+        "timestamp": datetime.now().isoformat()
     }
 
 
@@ -370,7 +413,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         session_id = session_mgr.create_session()
         await websocket.send_json({
             "type": "system",
-            "content": f"✨ 新会话已创建"
+            "content": f"✨ 新会话已创建",
+            "session_id": session_id
         })
     
     try:

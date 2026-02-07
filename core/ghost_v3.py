@@ -581,10 +581,12 @@ class LLMClient:
             contents = [prompt]
             if image:
                 contents.append(image)
+            # 新 SDK 使用 config 参数
+            from google.genai import types
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=contents,
-                generation_config={'temperature': temperature}
+                config=types.GenerateContentConfig(temperature=temperature)
             )
             return response.text
         else:

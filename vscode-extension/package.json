@@ -1,0 +1,155 @@
+{
+  "name": "godhand-automation",
+  "displayName": "GodHand Automation",
+  "description": "VSCode integration for GodHand - World-class GUI automation",
+  "version": "3.0.0",
+  "publisher": "godhand-team",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "Debuggers"
+  ],
+  "keywords": [
+    "automation",
+    "gui",
+    "ai",
+    "rpa",
+    "godhand"
+  ],
+  "activationEvents": [
+    "onCommand:godhand.start",
+    "onView:godhandPanel"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "godhand.start",
+        "title": "Start GodHand",
+        "category": "GodHand",
+        "icon": "$(play)"
+      },
+      {
+        "command": "godhand.stop",
+        "title": "Stop GodHand",
+        "category": "GodHand",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "godhand.execute",
+        "title": "Execute Command",
+        "category": "GodHand",
+        "icon": "$(run)"
+      },
+      {
+        "command": "godhand.record",
+        "title": "Start Recording",
+        "category": "GodHand",
+        "icon": "$(record)"
+      },
+      {
+        "command": "godhand.screenshot",
+        "title": "Take Screenshot",
+        "category": "GodHand",
+        "icon": "$(device-camera)"
+      },
+      {
+        "command": "godhand.openPanel",
+        "title": "Open GodHand Panel",
+        "category": "GodHand"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "godhandPanel",
+          "name": "GodHand",
+          "when": "godhand.enabled"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "godhand",
+          "title": "GodHand",
+          "icon": "$(remote)"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "GodHand",
+      "properties": {
+        "godhand.serverHost": {
+          "type": "string",
+          "default": "http://127.0.0.1:8000",
+          "description": "GodHand server host"
+        },
+        "godhand.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for authentication"
+        },
+        "godhand.autoStart": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto start GodHand on VSCode launch"
+        },
+        "godhand.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show execution notifications"
+        }
+      }
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "godhand.start",
+          "when": "!godhand.running"
+        },
+        {
+          "command": "godhand.stop",
+          "when": "godhand.running"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "godhand.execute",
+          "when": "editorHasSelection",
+          "group": "godhand@1"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "godhand.execute",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "godhand.screenshot",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "axios": "^1.6.0"
+  }
+}
