@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GodHand v3.0 🌌 - 宇宙级的智能命令与GUI自动化系统
+GodHand v3.0 [emoji] - 宇宙级的智能命令与GUI自动化系统
 
 集成：
 - VisualEngine: 视觉理解引擎
@@ -55,7 +55,7 @@ from core import (
     CloudSync, SyncStatus
 )
 
-print("[GodHand v3.0 🌌] 正在启动宇宙级自动化系统...")
+print("[GodHand v3.0] 正在启动宇宙级自动化系统...")
 print("[GodHand v3.0] The Universe's #1 GUI Automation System")
 
 # ============================================================================
@@ -151,7 +151,7 @@ class GodHandCore:
         # 当前截图缓存
         self._current_screenshot: Optional[Image.Image] = None
 
-        print("[Core] 🌌 宇宙级初始化完成!")
+        print("[Core] [emoji] 宇宙级初始化完成!")
 
     def _register_ai_skills(self):
         """注册AI技能"""
@@ -185,7 +185,7 @@ class GodHandCore:
         """加载配置"""
         default = {
             'provider': 'google',
-            'google': {'api_key': '', 'model': 'gemini-2.0-flash'},
+            'google': {'api_key': None, 'model': 'gemini-2.0-flash'},
             'visual': {'use_ocr': True, 'use_ml': False},
             'safety': {'max_steps': 30, 'step_delay': 0.5}
         }
@@ -260,11 +260,25 @@ class GodHandCore:
         result = self.process_with_vision(instruction)
 
         if not result['success']:
+            print(f"[Visual] 错误: {result.get('error', '未知错误')}")
             return result
 
-        # 2. 执行点击/输入等动作
-        element = result['element']
-        x, y = element['x'], element['y']
+        # 2. 检查元素数据
+        element = result.get('element')
+        if not element:
+            return {
+                'success': False,
+                'error': '未找到目标元素'
+            }
+
+        x, y = element.get('x'), element.get('y')
+        if x is None or y is None:
+            return {
+                'success': False,
+                'error': '元素坐标无效'
+            }
+
+        print(f"[Visual] 目标位置: ({x}, {y}), 元素: {element.get('description', 'unknown')}")
 
         try:
             import pyautogui
@@ -463,10 +477,8 @@ class GodHandCore:
             visual_keywords = ['点击', '按钮', '输入框', '图标', '右上角', '左上角']
             if any(kw in text for kw in visual_keywords):
                 mode = "visual"
-            # 如果包含复合指令，使用规划模式
-            elif any(kw in text for kw in ['然后', '再', '先', '最后']):
-                mode = "plan"
             else:
+                # 使用命令模式处理所有指令（包括复合指令）
                 mode = "command"
 
         # 根据模式处理
@@ -476,7 +488,12 @@ class GodHandCore:
             return self.plan_and_execute(text)
         else:
             # 传统命令模式
-            actions = self.smart_parser.parse(text)
+            parse_result = self.smart_parser.parse(text)
+            # SmartParser returns (actions, intent) tuple
+            if isinstance(parse_result, tuple):
+                actions = parse_result[0]
+            else:
+                actions = parse_result
             results = []
             for action in actions:
                 result = self.action_executor.execute(action)
@@ -679,7 +696,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         session_id = session_mgr.create_session()
         await websocket.send_json({
             "type": "system",
-            "content": "✨ GodHand v3.0 已连接"
+            "content": "[*] GodHand v3.0 已连接"
         })
 
     try:
@@ -694,7 +711,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             # 发送思考中
             await websocket.send_json({
                 "type": "thinking",
-                "content": "🧠 正在分析..."
+                "content": "[BRAIN] 正在分析..."
             })
 
             # 处理
@@ -733,7 +750,7 @@ def get_html() -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GodHand v3.0 🖐️ - 世界级的智能自动化</title>
+    <title>GodHand v3.0 [emoji] - 世界级的智能自动化</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -928,23 +945,23 @@ def get_html() -> str:
 <body>
     <div class="app">
         <header class="header">
-            <h1 class="logo">🖐️ GodHand v3.0</h1>
-            <span class="badge">🚀 世界第一智能自动化系统</span>
+            <h1 class="logo">[emoji] GodHand v3.0</h1>
+            <span class="badge">[ROCKET] 世界第一智能自动化系统</span>
         </header>
 
         <div class="features">
             <div class="feature-card">
-                <div class="feature-icon">👁️</div>
+                <div class="feature-icon">[EYE]</div>
                 <div class="feature-title">视觉理解</div>
                 <div class="feature-desc">自动识别屏幕元素，语义化定位</div>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">🧠</div>
+                <div class="feature-icon">[BRAIN]</div>
                 <div class="feature-title">智能规划</div>
                 <div class="feature-desc">复杂任务自动分解，自适应执行</div>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">⚡</div>
+                <div class="feature-icon">[BOLT]</div>
                 <div class="feature-title">实时交互</div>
                 <div class="feature-desc">WebSocket 实时通信，毫秒响应</div>
             </div>
@@ -954,33 +971,33 @@ def get_html() -> str:
             <div class="chat-container" id="chatContainer">
                 <div class="message assistant">
                     <div class="message-content">
-                        ✨ <strong>GodHand v3.0 已就绪！</strong><br><br>
+                        [*] <strong>GodHand v3.0 已就绪！</strong><br><br>
                         支持三种智能模式：<br>
-                        🎯 <strong>Auto</strong> - 自动选择最佳执行方式<br>
-                        👁️ <strong>Visual</strong> - 基于视觉的元素定位<br>
-                        📋 <strong>Plan</strong> - 复杂任务规划与分解<br><br>
+                        [TARGET] <strong>Auto</strong> - 自动选择最佳执行方式<br>
+                        [EYE] <strong>Visual</strong> - 基于视觉的元素定位<br>
+                        [CLIPBOARD] <strong>Plan</strong> - 复杂任务规划与分解<br><br>
                         试试：<br>
-                        • "打开记事本 输入Hello World"<br>
-                        • "点击保存按钮"<br>
-                        • "截图并分析屏幕元素"
+                        * "打开记事本 输入Hello World"<br>
+                        * "点击保存按钮"<br>
+                        * "截图并分析屏幕元素"
                     </div>
                 </div>
             </div>
 
             <div class="quick-commands">
-                <button class="quick-btn" onclick="sendQuick('打开记事本 输入Hello v3.0')">📝 记事本</button>
-                <button class="quick-btn" onclick="sendQuick('打开计算器')">🧮 计算器</button>
-                <button class="quick-btn" onclick="sendQuick('截图', 'visual')">📸 截图分析</button>
-                <button class="quick-btn" onclick="sendQuick('点击开始按钮', 'visual')">👆 视觉点击</button>
-                <button class="quick-btn" onclick="sendQuick('搜索Python教程', 'plan')">🔍 搜索</button>
+                <button class="quick-btn" onclick="sendQuick('打开记事本 输入Hello v3.0')">[NOTEPAD] 记事本</button>
+                <button class="quick-btn" onclick="sendQuick('打开计算器')">[CALC] 计算器</button>
+                <button class="quick-btn" onclick="sendQuick('截图', 'visual')">[CAMERA] 截图分析</button>
+                <button class="quick-btn" onclick="sendQuick('点击开始按钮', 'visual')">[POINT] 视觉点击</button>
+                <button class="quick-btn" onclick="sendQuick('搜索Python教程', 'plan')">[SEARCH] 搜索</button>
             </div>
 
             <div class="input-area">
                 <select class="mode-select" id="modeSelect">
-                    <option value="auto">🎯 Auto</option>
-                    <option value="visual">👁️ Visual</option>
-                    <option value="plan">📋 Plan</option>
-                    <option value="command">⌨️ Command</option>
+                    <option value="auto">[TARGET] Auto</option>
+                    <option value="visual">[EYE] Visual</option>
+                    <option value="plan">[CLIPBOARD] Plan</option>
+                    <option value="command">[KEYBOARD] Command</option>
                 </select>
                 <div class="input-wrapper">
                     <input type="text" id="userInput" placeholder="输入指令，例如：点击保存按钮..." onkeypress="handleKeyPress(event)">
@@ -1011,7 +1028,7 @@ def get_html() -> str:
             ws = new WebSocket(`${protocol}//${window.location.host}/ws/${sessionId}`);
 
             ws.onopen = () => {
-                statusText.textContent = '🟢 已连接';
+                statusText.textContent = '[GREEN] 已连接';
             };
 
             ws.onmessage = (event) => {
@@ -1020,7 +1037,7 @@ def get_html() -> str:
             };
 
             ws.onclose = () => {
-                statusText.textContent = '🔴 已断开';
+                statusText.textContent = '[RED] 已断开';
                 setTimeout(connectWS, 3000);
             };
         }
@@ -1077,16 +1094,16 @@ def get_html() -> str:
         function addResult(data) {
             let content = '';
             if (data.success) {
-                content = `✅ <strong>执行成功</strong> (${data.mode})<br><br>`;
+                content = `[OK] <strong>执行成功</strong> (${data.mode})<br><br>`;
                 content += `<pre style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;overflow-x:auto;">${JSON.stringify(data.result, null, 2)}</pre>`;
             } else {
-                content = `❌ <strong>执行失败</strong><br><br>${data.result?.error || '未知错误'}`;
+                content = `[FAIL] <strong>执行失败</strong><br><br>${data.result?.error || '未知错误'}`;
             }
             addMessage('assistant', content);
         }
 
         function addError(content) {
-            addMessage('assistant', `❌ <strong>错误</strong><br>${content}`);
+            addMessage('assistant', `[FAIL] <strong>错误</strong><br>${content}`);
         }
 
         function disableSend() {
@@ -1152,14 +1169,14 @@ def get_html() -> str:
 if __name__ == "__main__":
     import uvicorn
     print("=" * 70)
-    print("🖐️ GodHand v3.0 - 世界级的智能自动化系统")
+    print("[emoji] GodHand v3.0 - 世界级的智能自动化系统")
     print("=" * 70)
-    print("✨ 新特性:")
-    print("   • VisualEngine - 视觉理解引擎")
-    print("   • TaskPlanner - 智能任务规划")
-    print("   • Multi-Modal - 多模态AI决策")
+    print("[*] 新特性:")
+    print("   * VisualEngine - 视觉理解引擎")
+    print("   * TaskPlanner - 智能任务规划")
+    print("   * Multi-Modal - 多模态AI决策")
     print("=" * 70)
-    print("🌐 访问地址: http://127.0.0.1:8000")
-    print("📚 API 文档: http://127.0.0.1:8000/docs")
+    print("[GLOBE] 访问地址: http://127.0.0.1:2234")
+    print("[BOOK] API 文档: http://127.0.0.1:2234/docs")
     print("=" * 70)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=2234)
