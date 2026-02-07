@@ -32,6 +32,7 @@ except ImportError:
 class ActionType(Enum):
     """动作类型"""
     OPEN_APP = "open_app"
+    CLOSE_APP = "close_app"  # 关闭应用
     CLICK = "click"
     DOUBLE_CLICK = "double_click"
     RIGHT_CLICK = "right_click"
@@ -51,6 +52,13 @@ class ActionType(Enum):
     FILE_OPEN = "file_open"  # 打开文件
     DIR_CREATE = "dir_create"  # 创建目录
     BROWSER_OPEN = "browser_open"  # 打开网页
+    COPY = "copy"  # 复制
+    PASTE = "paste"  # 粘贴
+    SELECT_ALL = "select_all"  # 全选
+    IMAGE_CLICK = "image_click"  # 图片识别点击
+    GET_POSITION = "get_position"  # 获取鼠标位置
+    LOOP = "loop"  # 循环执行
+    CONDITION = "condition"  # 条件执行
 
 
 @dataclass
@@ -343,6 +351,69 @@ class SimpleParser:
                 description=f'打开网页: {url}'
             )
 
+        # 关闭应用
+        close_match = re.search(r'(?:关闭|退出|关掉)\s*(.+)', instruction)
+        if close_match:
+            app = close_match.group(1).strip()
+            return Action(
+                type=ActionType.CLOSE_APP,
+                params={'app': app},
+                description=f'关闭应用: {app}'
+            )
+
+        # 复制
+        if re.search(r'(?:复制|拷贝)', instruction):
+            return Action(
+                type=ActionType.COPY,
+                params={},
+                description='复制'
+            )
+
+        # 粘贴
+        if re.search(r'(?:粘贴)', instruction):
+            return Action(
+                type=ActionType.PASTE,
+                params={},
+                description='粘贴'
+            )
+
+        # 全选
+        if re.search(r'(?:全选)', instruction):
+            return Action(
+                type=ActionType.SELECT_ALL,
+                params={},
+                description='全选'
+            )
+
+        # 获取鼠标位置
+        if re.search(r'(?:获取|显示).*?(?:鼠标|光标).*?(?:位置|坐标)', instruction):
+            return Action(
+                type=ActionType.GET_POSITION,
+                params={},
+                description='获取鼠标位置'
+            )
+
+        # 图片识别点击
+        img_match = re.search(r'(?:点击图片|找图).*?(.+\.(?:png|jpg|bmp|gif))', instruction)
+        if img_match:
+            image_path = img_match.group(1).strip()
+            return Action(
+                type=ActionType.IMAGE_CLICK,
+                params={'image': image_path},
+                description=f'点击图片: {image_path}'
+            )
+
+        # 循环执行
+        loop_match = re.search(r'(?:循环|重复)\s*(\d+)\s*(?:次)?\s*(.+)', instruction)
+        if loop_match:
+            count = int(loop_match.group(1))
+            sub_command = loop_match.group(2).strip()
+            return Action(
+                type=ActionType.LOOP,
+                params={'count': count, 'command': sub_command},
+                description=f'循环{count}次: {sub_command}'
+            )
+
         return None
 
     def _resolve_app(self, app_name: str) -> str:
@@ -536,6 +607,148 @@ class ActionExecutor:
         subprocess.Popen(f'start msedge "{url}"', shell=True)
         return {'success': True, 'output': f'打开网页: {url}'}
 
+    def _exec_close_app(self, action: Action) -> Dict:
+        """关闭应用"""
+        app = action.params.get('app', '')
+        try:
+            # 尝试通过 taskkill 关闭
+            subprocess.run(f'taskkill /f /im {app}.exe', shell=True, capture_output=True)
+            return {'success': True, 'output': f'关闭应用: {app}'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def _exec_copy(self, action: Action) -> Dict:
+        """复制"""
+        pyautogui.hotkey('ctrl', 'c')
+        return {'success': True, 'output': '复制'}
+
+    def _exec_paste(self, action: Action) -> Dict:
+        """粘贴"""
+        pyautogui.hotkey('ctrl', 'v')
+        return {'success': True, 'output': '粘贴'}
+
+    def _exec_select_all(self, action: Action) -> Dict:
+        """全选"""
+        pyautogui.hotkey('ctrl', 'a')
+        return {'success': True, 'output': '全选'}
+
+    def _exec_get_position(self, action: Action) -> Dict:
+        """获取鼠标位置"""
+        x, y = pyautogui.position()
+        return {'success': True, 'output': f'鼠标位置: ({x}, {y})'}
+
+    def _exec_image_click(self, action: Action) -> Dict:
+        """图片识别点击"""
+        image_path = action.params.get('image', '')
+        try:
+            location = pyautogui.locateCenterOnScreen(image_path, confidence=0.9)
+            if location:
+                pyautogui.click(location.x, location.y)
+                return {'success': True, 'output': f'点击图片 {image_path} 在 ({location.x}, {location.y})'}
+            else:
+                return {'success': False, 'error': f'未找到图片: {image_path}'}
+        except Exception as e:
+            return {'success': False, 'error': f'图片识别失败: {e}'}
+
+    def _exec_loop(self, action: Action) -> Dict:
+        """循环执行"""
+        count = action.params.get('count', 1)
+        command = action.params.get('command', '')
+
+        results = []
+        for i in range(count):
+            print(f"\n  [循环 {i+1}/{count}]")
+            # 解析子命令
+            sub_action = self.parser._parse_single(command.lower())
+            if sub_action:
+                result = self.execute(sub_action)
+                results.append(result)
+            else:
+                results.append({'success': False, 'error': f'无法解析: {command}'})
+
+        success_count = sum(1 for r in results if r.get('success'))
+        return {'success': success_count == len(results), 'output': f'循环完成: {success_count}/{len(results)} 成功'}
+
+
+class Recorder:
+    """录制和回放系统"""
+
+    def __init__(self):
+        self.recording = []
+        self.is_recording = False
+        self.record_file = "recorded_script.json"
+
+    def start_recording(self):
+        """开始录制"""
+        self.recording = []
+        self.is_recording = True
+        print("[录制] 开始录制，输入 'stop' 停止")
+        return True
+
+    def stop_recording(self, filename=None):
+        """停止录制并保存"""
+        self.is_recording = False
+        if filename:
+            self.record_file = filename
+
+        # 保存到文件
+        import json
+        try:
+            with open(self.record_file, 'w', encoding='utf-8') as f:
+                json.dump(self.recording, f, ensure_ascii=False, indent=2)
+            print(f"[录制] 已保存 {len(self.recording)} 个动作到 {self.record_file}")
+            return True
+        except Exception as e:
+            print(f"[ERROR] 保存失败: {e}")
+            return False
+
+    def add_action(self, command: str):
+        """添加动作到录制"""
+        if self.is_recording:
+            self.recording.append({
+                'command': command,
+                'timestamp': time.time()
+            })
+
+    def load_script(self, filename=None):
+        """加载录制的脚本"""
+        if filename:
+            self.record_file = filename
+
+        import json
+        try:
+            with open(self.record_file, 'r', encoding='utf-8') as f:
+                self.recording = json.load(f)
+            return self.recording
+        except Exception as e:
+            print(f"[ERROR] 加载失败: {e}")
+            return []
+
+    def play(self, executor, parser, delay=1.0):
+        """回放录制的脚本"""
+        if not self.recording:
+            print("[回放] 没有录制内容")
+            return False
+
+        print(f"[回放] 开始回放 {len(self.recording)} 个动作，间隔 {delay} 秒")
+
+        for i, item in enumerate(self.recording, 1):
+            command = item['command']
+            print(f"\n[{i}/{len(self.recording)}] 执行: {command}")
+
+            actions = parser.parse(command)
+            if actions:
+                for action in actions:
+                    executor.execute(action)
+            else:
+                print(f"  [ERROR] 无法解析: {command}")
+
+            if i < len(self.recording):
+                time.sleep(delay)
+
+        print("\n[回放] 完成")
+        return True
+
 
 class GodHandCLI:
     """GodHand 命令行界面"""
@@ -543,22 +756,25 @@ class GodHandCLI:
     def __init__(self):
         self.parser = SimpleParser()
         self.executor = ActionExecutor()
+        self.executor.parser = self.parser  # 用于循环执行
+        self.recorder = Recorder()
         self.running = True
 
         print("=" * 60)
-        print("GodHand CLI v3.0 - 简单可用的GUI自动化工具")
+        print("GodHand CLI v3.1 - 高级GUI自动化工具")
         print("=" * 60)
         if not HAS_PYAUTOGUI:
             print("\n[WARN] pyautogui 未安装，部分功能不可用")
             print("安装: pip install pyautogui pyperclip\n")
         print("\n支持的指令:")
         print("  打开 [应用名]        - 打开应用程序")
-        print("  打开 XX 然后 YY      - 复合指令")
+        print("  关闭 [应用名]        - 关闭应用程序")
+        print("  打开 XX 然后 YY      - 复合指令（支持多个然后）")
         print("  点击 X, Y           - 点击坐标")
         print("  双击                - 双击鼠标")
         print("  右键                - 右键点击")
         print("  输入 [文字]         - 输入文字")
-        print("  按 [键名]           - 按键 (enter, space, esc等)")
+        print("  按 [键名]           - 按键")
         print("  快捷键 ctrl+a       - 快捷键组合")
         print("  移动 X, Y           - 移动鼠标")
         print("  等待 [秒数]         - 等待")
@@ -568,7 +784,11 @@ class GodHandCLI:
         print("  创建文件 [路径]     - 创建文件")
         print("  删除文件 [路径]     - 删除文件")
         print("  创建文件夹 [路径]   - 创建目录")
-        print("\n其他命令: help, exit, quit")
+        print("  复制 / 粘贴 / 全选  - 剪贴板操作")
+        print("  获取鼠标位置        - 显示当前鼠标坐标")
+        print("  点击图片 [路径]     - 图片识别并点击")
+        print("  循环 N次 [指令]     - 重复执行指令")
+        print("\n其他命令: help, exit, quit, record, play, script")
         print("=" * 60)
 
     def run(self):
@@ -576,18 +796,58 @@ class GodHandCLI:
         while self.running:
             try:
                 # 获取输入
-                user_input = input("\nGodHand> ").strip()
+                prompt = "\n[录制中] GodHand> " if self.recorder.is_recording else "\nGodHand> "
+                user_input = input(prompt).strip()
 
                 if not user_input:
                     continue
 
+                # 录制模式下，记录所有输入
+                if self.recorder.is_recording:
+                    if user_input.lower() == 'stop':
+                        self.recorder.stop_recording()
+                        continue
+                    else:
+                        self.recorder.add_action(user_input)
+
                 # 处理特殊命令
                 if user_input.lower() in ['exit', 'quit', 'q']:
+                    if self.recorder.is_recording:
+                        self.recorder.stop_recording()
                     print("再见!")
                     break
 
                 if user_input.lower() in ['help', 'h', '?']:
                     self.show_help()
+                    continue
+
+                # 录制命令
+                if user_input.lower() == 'record':
+                    self.recorder.start_recording()
+                    continue
+
+                if user_input.lower().startswith('record '):
+                    filename = user_input[7:].strip()
+                    self.recorder.start_recording()
+                    self.recorder.record_file = filename
+                    continue
+
+                # 回放命令
+                if user_input.lower() == 'play':
+                    self.recorder.load_script()
+                    self.recorder.play(self.executor, self.parser)
+                    continue
+
+                if user_input.lower().startswith('play '):
+                    filename = user_input[5:].strip()
+                    self.recorder.load_script(filename)
+                    self.recorder.play(self.executor, self.parser)
+                    continue
+
+                # 脚本执行命令
+                if user_input.lower().startswith('script '):
+                    script_file = user_input[7:].strip()
+                    self._run_script(script_file)
                     continue
 
                 # 解析并执行
@@ -610,12 +870,41 @@ class GodHandCLI:
             except Exception as e:
                 print(f"[ERROR] {e}")
 
+    def _run_script(self, filename: str):
+        """执行脚本文件"""
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            print(f"\n[脚本] 执行 {filename}，共 {len(lines)} 行")
+            print("=" * 60)
+
+            for i, line in enumerate(lines, 1):
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+
+                print(f"\n[{i}] {line}")
+                actions = self.parser.parse(line)
+
+                if actions:
+                    for action in actions:
+                        self.executor.execute(action)
+                else:
+                    print(f"  [ERROR] 无法解析: {line}")
+
+            print(f"\n{'='*60}")
+            print("[脚本] 执行完成")
+
+        except Exception as e:
+            print(f"[ERROR] 脚本执行失败: {e}")
+
     def show_help(self):
         """显示帮助"""
         print("\n" + "=" * 60)
         print("使用示例:")
         print("  打开记事本")
-        print("  打开记事本 然后输入Hello World")
+        print("  打开记事本 然后输入Hello World 然后按回车")
         print("  点击 500, 500")
         print("  双击")
         print("  输入 你好世界")
@@ -623,6 +912,21 @@ class GodHandCLI:
         print("  快捷键 ctrl+s")
         print("  等待 3")
         print("  截图")
+        print("  获取鼠标位置")
+        print("  复制 / 粘贴")
+        print("  循环 3次 截图")
+        print("\n录制与回放:")
+        print("  record           - 开始录制")
+        print("  stop             - 停止录制")
+        print("  play             - 回放录制")
+        print("  play myscript.json - 回放指定脚本")
+        print("\n脚本执行:")
+        print("  script myscript.txt - 执行脚本文件")
+        print("  (脚本文件每行一个命令，#开头为注释)")
+        print("\n高级示例:")
+        print("  打开计算器 然后输入1 然后按加号 然后输入1 然后按等于")
+        print("  关闭 计算器")
+        print("  点击图片 button.png")
         print("=" * 60)
 
 
