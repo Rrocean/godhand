@@ -82,6 +82,39 @@ class SimpleParser:
             'vscode': 'code',
         }
 
+        # 中文按键名称映射
+        self.key_map = {
+            # 计算器专用
+            '加号': '+',
+            '加': '+',
+            '减号': '-',
+            '减': '-',
+            '乘号': '*',
+            '乘': '*',
+            '除号': '/',
+            '除': '/',
+            '等于': '=',
+            '等号': '=',
+            '等': '=',
+            '点': '.',
+            '小数点': '.',
+            # 功能键
+            '回车': 'enter',
+            '空格': 'space',
+            '退格': 'backspace',
+            '删除': 'delete',
+            '删除键': 'delete',
+            '上': 'up',
+            '下': 'down',
+            '左': 'left',
+            '右': 'right',
+            'ESC': 'esc',
+            'Tab': 'tab',
+            # 数字
+            '零': '0', '一': '1', '二': '2', '三': '3', '四': '4',
+            '五': '5', '六': '6', '七': '7', '八': '8', '九': '9',
+        }
+
     def parse(self, instruction: str) -> List[Action]:
         """解析指令"""
         instruction = instruction.strip().lower()
@@ -97,14 +130,14 @@ class SimpleParser:
         return [action] if action else []
 
     def _parse_composite(self, instruction: str) -> List[Action]:
-        """解析复合指令"""
+        """解析复合指令 - 支持多个\"然后\""""
         actions = []
 
-        # 模式：打开XX 然后YY
-        match = re.search(r'(?:打开|启动|运行)\s*(.+?)\s*(?:然后|再)\s*(.+)', instruction)
-        if match:
-            app_name = match.group(1).strip()
-            follow_up = match.group(2).strip()
+        # 先检查是否是\"打开XX 然后...\"模式
+        open_match = re.search(r'^(?:打开|启动|运行)\s*(.+?)\s*(?:然后|再|接着)\s*(.+)', instruction)
+        if open_match:
+            app_name = open_match.group(1).strip()
+            rest = open_match.group(2).strip()
 
             # 添加打开应用动作
             actions.append(Action(
@@ -120,18 +153,43 @@ class SimpleParser:
                 description='等待2秒'
             ))
 
-            # 解析后续动作
-            follow_action = self._parse_single(follow_up)
-            if follow_action:
-                actions.append(follow_action)
-            else:
-                # 如果无法解析，作为视觉描述动作
-                actions.append(Action(
-                    type=ActionType.VISUAL_ACTION,
-                    params={'description': follow_up},
-                    description=f'视觉动作: {follow_up}'
-                ))
+            # 处理剩余部分（可能还有多个\"然后\"）
+            parts = re.split(r'(?:然后|再|接着)', rest)
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
 
+                action = self._parse_single(part)
+                if action:
+                    actions.append(action)
+                else:
+                    # 如果无法解析，作为视觉描述动作
+                    actions.append(Action(
+                        type=ActionType.VISUAL_ACTION,
+                        params={'description': part},
+                        description=f'视觉动作: {part}'
+                    ))
+
+            return actions
+
+        # 其他复合指令（没有\"打开\"开头的）
+        if '然后' in instruction or '再' in instruction:
+            parts = re.split(r'(?:然后|再|接着)', instruction)
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
+
+                action = self._parse_single(part)
+                if action:
+                    actions.append(action)
+                else:
+                    actions.append(Action(
+                        type=ActionType.VISUAL_ACTION,
+                        params={'description': part},
+                        description=f'视觉动作: {part}'
+                    ))
             return actions
 
         return []
@@ -188,10 +246,12 @@ class SimpleParser:
         # 按键
         match = re.search(r'(?:按|按键)\s*(.+)', instruction)
         if match:
-            key = match.group(1).strip().lower()
+            key = match.group(1).strip()
+            # 使用 key_map 映射中文按键名称
+            actual_key = self.key_map.get(key, key.lower())
             return Action(
                 type=ActionType.PRESS_KEY,
-                params={'key': key},
+                params={'key': actual_key},
                 description=f'按 {key}'
             )
 
