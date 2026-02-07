@@ -43,6 +43,8 @@ class ActionType(Enum):
     SYSTEM = "system"
     SCRIPT = "script"
     GUI_ACTION = "gui"
+    DRAG = "drag"           # 拖拽操作（画圆、画矩形等）
+    SCROLL = "scroll"       # 滚动操作
     UNKNOWN = "unknown"
 
 
@@ -709,6 +711,14 @@ class SmartParserV2:
 9. **system** - 系统操作
    - params: {{"operation": "screenshot/volume/brightness"}}
 
+10. **drag** - 拖拽操作（画形状、拖拽文件等）
+    - params: {{"start_x": 100, "start_y": 100, "end_x": 200, "end_y": 200}} 或 {{"start_rel_x": 0.3, "start_rel_y": 0.3, "dx": 100, "dy": 100}}
+    - 画圆/椭圆: 使用椭圆工具后，从左上角拖拽到右下角
+    - duration: 拖拽持续时间（秒），默认0.5
+
+11. **scroll** - 滚动操作
+    - params: {{"amount": 3, "direction": "down"}} 或 {{"amount": 3, "direction": "up"}}
+
 ## 输出要求
 请输出 JSON 数组，每个元素是一个动作。要非常详细，包含等待和过渡步骤。
 
@@ -731,6 +741,20 @@ class SmartParserV2:
   {{"type": "type_text", "params": {{"text": "姓名"}}, "description": "在A1输入姓名", "reason": "用户要求第一行输入姓名"}},
   {{"type": "press_key", "params": {{"key": "tab"}}, "description": "移动到B1", "reason": "切换到下一个单元格"}},
   {{"type": "type_text", "params": {{"text": "年龄"}}, "description": "在B1输入年龄", "reason": "用户要求输入年龄"}}
+]
+```
+
+示例 3: "打开画图，画一个红色的圆"
+```json
+[
+  {{"type": "open_app", "params": {{"command": "mspaint", "app_name": "画图"}}, "description": "打开画图应用", "reason": "用户要求画图"}},
+  {{"type": "wait", "params": {{"seconds": 1.5}}, "description": "等待画图启动", "reason": "等待应用窗口出现"}},
+  {{"type": "click", "params": {{"rel_x": 0.05, "rel_y": 0.15}}, "description": "点击形状工具", "reason": "选择画形状功能"}},
+  {{"type": "wait", "params": {{"seconds": 0.3}}, "description": "等待工具展开", "reason": "等待菜单出现"}},
+  {{"type": "click", "params": {{"rel_x": 0.08, "rel_y": 0.25}}, "description": "选择椭圆工具", "reason": "选择画圆/椭圆的工具"}},
+  {{"type": "click", "params": {{"rel_x": 0.05, "rel_y": 0.08}}, "description": "点击颜色选择器", "reason": "选择红色"}},
+  {{"type": "click", "params": {{"rel_x": 0.15, "rel_y": 0.08}}, "description": "选择红色", "reason": "设置画笔颜色为红色"}},
+  {{"type": "drag", "params": {{"start_rel_x": 0.3, "start_rel_y": 0.3, "dx": 200, "dy": 200}}, "description": "拖拽画圆", "reason": "在画布上画一个圆形"}}
 ]
 ```
 
@@ -931,6 +955,77 @@ class ActionExecutorV2:
             pyautogui.click(x, y, clicks=clicks)
             result['success'] = True
             result['output'] = f"已点击: ({x}, {y}) [屏幕{screen_width}x{screen_height}]"
+        except ImportError:
+            result['error'] = '缺少 pyautogui'
+        except Exception as e:
+            result['error'] = str(e)
+        
+        return result
+    
+    def _execute_drag(self, action: Action, result: Dict) -> Dict:
+        """执行拖拽操作（用于画圆、画矩形等）"""
+        try:
+            import pyautogui
+            
+            # 获取起始和结束坐标
+            start_x = action.params.get('start_x')
+            start_y = action.params.get('start_y')
+            end_x = action.params.get('end_x')
+            end_y = action.params.get('end_y')
+            
+            # 支持相对坐标
+            start_rel_x = action.params.get('start_rel_x')
+            start_rel_y = action.params.get('start_rel_y')
+            end_rel_x = action.params.get('end_rel_x')
+            end_rel_y = action.params.get('end_rel_y')
+            
+            screen_width, screen_height = pyautogui.size()
+            
+            # 转换相对坐标
+            if start_rel_x is not None and start_rel_y is not None:
+                start_x = int(screen_width * start_rel_x)
+                start_y = int(screen_height * start_rel_y)
+            if end_rel_x is not None and end_rel_y is not None:
+                end_x = int(screen_width * end_rel_x)
+                end_y = int(screen_height * end_rel_y)
+            
+            # 如果没有结束坐标，使用偏移量
+            if end_x is None or end_y is None:
+                dx = action.params.get('dx', 100)
+                dy = action.params.get('dy', 100)
+                end_x = start_x + dx
+                end_y = start_y + dy
+            
+            duration = action.params.get('duration', 0.5)
+            
+            # 执行拖拽
+            pyautogui.moveTo(start_x, start_y)
+            pyautogui.dragTo(end_x, end_y, duration=duration)
+            
+            result['success'] = True
+            result['output'] = f"已拖拽: ({start_x}, {start_y}) -> ({end_x}, {end_y})"
+        except ImportError:
+            result['error'] = '缺少 pyautogui'
+        except Exception as e:
+            result['error'] = str(e)
+        
+        return result
+    
+    def _execute_scroll(self, action: Action, result: Dict) -> Dict:
+        """执行滚动操作"""
+        try:
+            import pyautogui
+            
+            amount = action.params.get('amount', 3)
+            direction = action.params.get('direction', 'down')
+            
+            # 转换方向
+            scroll_amount = amount if direction == 'down' else -amount
+            
+            pyautogui.scroll(scroll_amount)
+            
+            result['success'] = True
+            result['output'] = f"已{'向下' if direction == 'down' else '向上'}滚动 {amount} 单位"
         except ImportError:
             result['error'] = '缺少 pyautogui'
         except Exception as e:

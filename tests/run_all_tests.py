@@ -129,6 +129,45 @@ def main():
         print(f"❌ PluginSystem 测试加载失败: {e}")
         results['PluginSystem'] = False
 
+    # 11. 集成测试
+    print("\n" + "-"*70)
+    print("  🔗 集成测试")
+    print("-"*70)
+    try:
+        from test_integration import TestIntegration
+        integration = TestIntegration()
+        integration.run_all_tests()
+        results['Integration'] = True
+    except Exception as e:
+        print(f"❌ 集成测试失败: {e}")
+        results['Integration'] = False
+
+    # 12. 端到端测试
+    print("\n" + "-"*70)
+    print("  🎭 端到端测试")
+    print("-"*70)
+    try:
+        from test_end_to_end import EndToEndTest
+        e2e = EndToEndTest()
+        success = e2e.run_all_tests()
+        results['EndToEnd'] = success
+    except Exception as e:
+        print(f"❌ 端到端测试失败: {e}")
+        results['EndToEnd'] = False
+
+    # 13. 性能基准测试
+    print("\n" + "-"*70)
+    print("  📊 性能基准测试")
+    print("-"*70)
+    try:
+        from benchmark_performance import PerformanceBenchmark
+        benchmark = PerformanceBenchmark()
+        success = benchmark.run_all_benchmarks()
+        results['Benchmark'] = success
+    except Exception as e:
+        print(f"❌ 性能基准测试失败: {e}")
+        results['Benchmark'] = False
+
     # 汇总结果
     print_header("📊 测试结果汇总")
 
