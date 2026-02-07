@@ -33,6 +33,10 @@ class ActionType(Enum):
     """动作类型"""
     OPEN_APP = "open_app"
     CLOSE_APP = "close_app"  # 关闭应用
+    ACTIVATE_WINDOW = "activate_window"  # 激活窗口
+    LIST_WINDOWS = "list_windows"  # 列出窗口
+    MINIMIZE_WINDOW = "minimize_window"  # 最小化窗口
+    MAXIMIZE_WINDOW = "maximize_window"  # 最大化窗口
     CLICK = "click"
     DOUBLE_CLICK = "double_click"
     RIGHT_CLICK = "right_click"
@@ -43,6 +47,7 @@ class ActionType(Enum):
     DRAG = "drag"
     SCROLL = "scroll"
     WAIT = "wait"
+    WAIT_FOR_IMAGE = "wait_for_image"  # 等待图片出现
     SCREENSHOT = "screenshot"
     SHELL = "shell"
     VISUAL_ACTION = "visual_action"  # 视觉描述类动作（如画个圆）
@@ -57,8 +62,13 @@ class ActionType(Enum):
     SELECT_ALL = "select_all"  # 全选
     IMAGE_CLICK = "image_click"  # 图片识别点击
     GET_POSITION = "get_position"  # 获取鼠标位置
+    GET_SCREEN_SIZE = "get_screen_size"  # 获取屏幕尺寸
+    GET_PIXEL_COLOR = "get_pixel_color"  # 获取像素颜色
     LOOP = "loop"  # 循环执行
     CONDITION = "condition"  # 条件执行
+    RANDOM_CLICK = "random_click"  # 随机点击
+    BEEP = "beep"  # 蜂鸣提示
+    NOTIFY = "notify"  # 系统通知
 
 
 @dataclass
@@ -414,6 +424,94 @@ class SimpleParser:
                 description=f'循环{count}次: {sub_command}'
             )
 
+        # 等待图片出现
+        wait_img_match = re.search(r'(?:等待|等).*?(?:图片|图像).*?(.+\.(?:png|jpg|bmp|gif))', instruction)
+        if wait_img_match:
+            image_path = wait_img_match.group(1).strip()
+            return Action(
+                type=ActionType.WAIT_FOR_IMAGE,
+                params={'image': image_path, 'timeout': 30},
+                description=f'等待图片: {image_path}'
+            )
+
+        # 激活窗口
+        activate_match = re.search(r'(?:激活|切换到|点击窗口)\s*(.+)', instruction)
+        if activate_match:
+            window_title = activate_match.group(1).strip()
+            return Action(
+                type=ActionType.ACTIVATE_WINDOW,
+                params={'title': window_title},
+                description=f'激活窗口: {window_title}'
+            )
+
+        # 列出所有窗口
+        if re.search(r'(?:列出|显示).*?(?:窗口|应用|程序)', instruction):
+            return Action(
+                type=ActionType.LIST_WINDOWS,
+                params={},
+                description='列出所有窗口'
+            )
+
+        # 最小化窗口
+        if re.search(r'(?:最小化|最小)', instruction):
+            return Action(
+                type=ActionType.MINIMIZE_WINDOW,
+                params={},
+                description='最小化窗口'
+            )
+
+        # 最大化窗口
+        if re.search(r'(?:最大化|最大)', instruction):
+            return Action(
+                type=ActionType.MAXIMIZE_WINDOW,
+                params={},
+                description='最大化窗口'
+            )
+
+        # 获取屏幕尺寸
+        if re.search(r'(?:获取|显示).*?(?:屏幕|分辨率)', instruction):
+            return Action(
+                type=ActionType.GET_SCREEN_SIZE,
+                params={},
+                description='获取屏幕尺寸'
+            )
+
+        # 获取像素颜色
+        pixel_match = re.search(r'(?:获取|查看).*?(?:颜色|像素).*?(\d+)\s*,\s*(\d+)', instruction)
+        if pixel_match:
+            x, y = int(pixel_match.group(1)), int(pixel_match.group(2))
+            return Action(
+                type=ActionType.GET_PIXEL_COLOR,
+                params={'x': x, 'y': y},
+                description=f'获取 ({x}, {y}) 像素颜色'
+            )
+
+        # 随机点击
+        if re.search(r'(?:随机点击|随便点)', instruction):
+            return Action(
+                type=ActionType.RANDOM_CLICK,
+                params={},
+                description='随机点击'
+            )
+
+        # 蜂鸣提示
+        if re.search(r'(?:蜂鸣|提示音|beep)', instruction):
+            return Action(
+                type=ActionType.BEEP,
+                params={},
+                description='蜂鸣提示'
+            )
+
+        # 系统通知
+        notify_match = re.search(r'(?:通知|提醒)\s*(.+)', instruction)
+        if notify_match:
+            message = notify_match.group(1).strip()
+            return Action(
+                type=ActionType.NOTIFY,
+                params={'message': message},
+                description=f'系统通知: {message}'
+            )
+
         return None
 
     def _resolve_app(self, app_name: str) -> str:
@@ -433,21 +531,35 @@ class ActionExecutor:
     def __init__(self):
         self.results = []
 
-    def execute(self, action: Action) -> Dict:
-        """执行单个动作"""
+    def execute(self, action: Action, retry=3) -> Dict:
+        """执行单个动作，带重试机制"""
         if not HAS_PYAUTOGUI and action.type not in [ActionType.OPEN_APP, ActionType.SHELL]:
             return {'success': False, 'error': 'pyautogui 未安装'}
 
         print(f"  [执行] {action.description}")
 
-        try:
-            handler = getattr(self, f'_exec_{action.type.value}', None)
-            if handler:
-                return handler(action)
-            else:
-                return {'success': False, 'error': f'未知动作: {action.type.value}'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        last_error = None
+        for attempt in range(retry):
+            try:
+                handler = getattr(self, f'_exec_{action.type.value}', None)
+                if handler:
+                    result = handler(action)
+                    if result.get('success'):
+                        return result
+                    elif attempt < retry - 1:
+                        print(f"    [重试 {attempt + 1}/{retry}]...")
+                        time.sleep(0.5)
+                    else:
+                        return result
+                else:
+                    return {'success': False, 'error': f'未知动作: {action.type.value}'}
+            except Exception as e:
+                last_error = str(e)
+                if attempt < retry - 1:
+                    print(f"    [重试 {attempt + 1}/{retry}]...")
+                    time.sleep(0.5)
+
+        return {'success': False, 'error': last_error}
 
     def execute_batch(self, actions: List[Action]) -> List[Dict]:
         """批量执行动作"""
@@ -524,9 +636,17 @@ class ActionExecutor:
     def _exec_screenshot(self, action: Action) -> Dict:
         """截图"""
         from datetime import datetime
+
+        # 使用配置的截图目录
+        screenshot_dir = "."
+        if hasattr(self, 'config'):
+            screenshot_dir = self.config.get('screenshot_dir', '.')
+
         filename = f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-        pyautogui.screenshot(filename)
-        return {'success': True, 'output': f'截图保存: {filename}'}
+        filepath = os.path.join(screenshot_dir, filename)
+
+        pyautogui.screenshot(filepath)
+        return {'success': True, 'output': f'截图保存: {filepath}'}
 
     def _exec_visual_action(self, action: Action) -> Dict:
         """视觉描述动作 - 尝试模拟执行"""
@@ -669,6 +789,251 @@ class ActionExecutor:
         success_count = sum(1 for r in results if r.get('success'))
         return {'success': success_count == len(results), 'output': f'循环完成: {success_count}/{len(results)} 成功'}
 
+    def _exec_wait_for_image(self, action: Action) -> Dict:
+        """等待图片出现"""
+        image_path = action.params.get('image', '')
+        timeout = action.params.get('timeout', 30)
+        try:
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                location = pyautogui.locateCenterOnScreen(image_path, confidence=0.9)
+                if location:
+                    return {'success': True, 'output': f'找到图片 {image_path} 在 ({location.x}, {location.y})'}
+                time.sleep(0.5)
+            return {'success': False, 'error': f'等待超时，未找到图片: {image_path}'}
+        except Exception as e:
+            return {'success': False, 'error': f'等待图片失败: {e}'}
+
+    def _exec_activate_window(self, action: Action) -> Dict:
+        """激活窗口"""
+        title = action.params.get('title', '')
+        try:
+            import pygetwindow as gw
+            window = None
+            try:
+                window = gw.getWindowsWithTitle(title)[0]
+            except:
+                for w in gw.getAllWindows():
+                    if title.lower() in w.title.lower():
+                        window = w
+                        break
+            if window:
+                window.activate()
+                return {'success': True, 'output': f'激活窗口: {window.title}'}
+            else:
+                return {'success': False, 'error': f'未找到窗口: {title}'}
+        except Exception as e:
+            return {'success': False, 'error': f'激活窗口失败: {e}'}
+
+    def _exec_list_windows(self, action: Action) -> Dict:
+        """列出所有窗口"""
+        try:
+            import pygetwindow as gw
+            windows = [w for w in gw.getAllWindows() if w.title]
+            print("\n[窗口列表]")
+            for i, w in enumerate(windows[:20], 1):
+                print(f"  {i}. {w.title}")
+            return {'success': True, 'output': f'找到 {len(windows)} 个窗口'}
+        except Exception as e:
+            return {'success': False, 'error': f'获取窗口列表失败: {e}'}
+
+    def _exec_minimize_window(self, action: Action) -> Dict:
+        """最小化窗口"""
+        try:
+            import pygetwindow as gw
+            window = gw.getActiveWindow()
+            if window:
+                window.minimize()
+                return {'success': True, 'output': '最小化当前窗口'}
+            else:
+                return {'success': False, 'error': '没有活动窗口'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def _exec_maximize_window(self, action: Action) -> Dict:
+        """最大化窗口"""
+        try:
+            import pygetwindow as gw
+            window = gw.getActiveWindow()
+            if window:
+                window.maximize()
+                return {'success': True, 'output': '最大化当前窗口'}
+            else:
+                return {'success': False, 'error': '没有活动窗口'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def _exec_get_screen_size(self, action: Action) -> Dict:
+        """获取屏幕尺寸"""
+        width, height = pyautogui.size()
+        return {'success': True, 'output': f'屏幕尺寸: {width}x{height}'}
+
+    def _exec_get_pixel_color(self, action: Action) -> Dict:
+        """获取像素颜色"""
+        x = action.params.get('x', 0)
+        y = action.params.get('y', 0)
+        try:
+            color = pyautogui.pixel(x, y)
+            hex_color = '#{:02x}{:02x}{:02x}'.format(color[0], color[1], color[2])
+            return {'success': True, 'output': f'位置 ({x}, {y}) 的颜色: RGB{color} / {hex_color}'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def _exec_random_click(self, action: Action) -> Dict:
+        """随机点击"""
+        import random
+        width, height = pyautogui.size()
+        x = random.randint(100, width - 100)
+        y = random.randint(100, height - 100)
+        pyautogui.click(x, y)
+        return {'success': True, 'output': f'随机点击: ({x}, {y})'}
+
+    def _exec_beep(self, action: Action) -> Dict:
+        """蜂鸣提示"""
+        try:
+            import winsound
+            winsound.Beep(1000, 500)
+            return {'success': True, 'output': '蜂鸣提示'}
+        except:
+            return {'success': False, 'error': '蜂鸣失败'}
+
+    def _exec_notify(self, action: Action) -> Dict:
+        """系统通知"""
+        message = action.params.get('message', 'GodHand 通知')
+        try:
+            from ctypes import windll
+            windll.user32.MessageBoxW(0, message, "GodHand", 0x40)
+            return {'success': True, 'output': f'显示通知: {message}'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+
+class Config:
+    """配置管理系统"""
+
+    def __init__(self, config_file="godhand_config.json"):
+        self.config_file = config_file
+        self.data = self._load()
+
+    def _load(self) -> Dict:
+        """加载配置"""
+        default_config = {
+            'click_delay': 0.1,
+            'type_interval': 0.01,
+            'move_duration': 0.5,
+            'screenshot_dir': './screenshots',
+            'log_enabled': True,
+            'log_file': 'godhand.log',
+            'auto_save_screenshot': True,
+            'default_wait': 2.0,
+            'window_timeout': 10,
+            'image_confidence': 0.9,
+            'aliases': {
+                'calc': '计算器',
+                'notepad': '记事本',
+                'paint': '画图',
+            }
+        }
+
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    default_config.update(json.load(f))
+            except Exception as e:
+                print(f"[WARN] 配置文件加载失败: {e}")
+
+        return default_config
+
+    def save(self):
+        """保存配置"""
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(self.data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[ERROR] 配置保存失败: {e}")
+
+    def get(self, key, default=None):
+        """获取配置项"""
+        return self.data.get(key, default)
+
+    def set(self, key, value):
+        """设置配置项"""
+        self.data[key] = value
+        self.save()
+
+
+class Logger:
+    """日志系统"""
+
+    def __init__(self, log_file='godhand.log', enabled=True):
+        self.log_file = log_file
+        self.enabled = enabled
+
+    def log(self, level, message):
+        """记录日志"""
+        if not self.enabled:
+            return
+
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        log_entry = f"[{timestamp}] [{level}] {message}\n"
+
+        try:
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry)
+        except Exception as e:
+            print(f"[ERROR] 日志写入失败: {e}")
+
+    def info(self, message):
+        self.log('INFO', message)
+
+    def error(self, message):
+        self.log('ERROR', message)
+
+    def debug(self, message):
+        self.log('DEBUG', message)
+
+
+class TaskScheduler:
+    """任务调度器"""
+
+    def __init__(self):
+        self.tasks = []
+        self.running = False
+
+    def add(self, time_str: str, command: str):
+        """添加定时任务 (time_str: HH:MM)"""
+        self.tasks.append({'time': time_str, 'command': command, 'done': False})
+        print(f"[调度] 添加任务 {time_str}: {command}")
+
+    def run(self, parser, executor):
+        """运行调度器"""
+        import datetime
+        self.running = True
+        print("[调度] 任务调度器启动...")
+
+        while self.running:
+            now = datetime.datetime.now().strftime('%H:%M')
+            for task in self.tasks:
+                if task['time'] == now and not task['done']:
+                    print(f"\n[调度] 执行任务: {task['command']}")
+                    actions = parser.parse(task['command'])
+                    if actions:
+                        for action in actions:
+                            executor.execute(action)
+                    task['done'] = True
+
+            # 重置已完成的任务（下一分钟）
+            if now.endswith(':00'):
+                for task in self.tasks:
+                    task['done'] = False
+
+            time.sleep(1)
+
+    def stop(self):
+        """停止调度器"""
+        self.running = False
+
 
 class Recorder:
     """录制和回放系统"""
@@ -754,19 +1119,36 @@ class GodHandCLI:
     """GodHand 命令行界面"""
 
     def __init__(self):
+        self.config = Config()
+        self.logger = Logger(
+            self.config.get('log_file'),
+            self.config.get('log_enabled')
+        )
         self.parser = SimpleParser()
         self.executor = ActionExecutor()
         self.executor.parser = self.parser  # 用于循环执行
+        self.executor.config = self.config  # 配置
         self.recorder = Recorder()
+        self.scheduler = TaskScheduler()
         self.running = True
 
+        # 确保截图目录存在
+        screenshot_dir = self.config.get('screenshot_dir')
+        if screenshot_dir and not os.path.exists(screenshot_dir):
+            os.makedirs(screenshot_dir)
+
         print("=" * 60)
-        print("GodHand CLI v3.1 - 高级GUI自动化工具")
+        print("GodHand CLI v3.2 - 专业GUI自动化工具")
         print("=" * 60)
+        self.logger.info("GodHand CLI 启动")
+
+        # 加载别名
+        aliases = self.config.get('aliases', {})
+        self.parser.app_map.update(aliases)
         if not HAS_PYAUTOGUI:
             print("\n[WARN] pyautogui 未安装，部分功能不可用")
-            print("安装: pip install pyautogui pyperclip\n")
-        print("\n支持的指令:")
+            print("安装: pip install pyautogui pyperclip pygetwindow opencv-python\n")
+        print("\n基础指令:")
         print("  打开 [应用名]        - 打开应用程序")
         print("  关闭 [应用名]        - 关闭应用程序")
         print("  打开 XX 然后 YY      - 复合指令（支持多个然后）")
@@ -779,6 +1161,12 @@ class GodHandCLI:
         print("  移动 X, Y           - 移动鼠标")
         print("  等待 [秒数]         - 等待")
         print("  截图                - 屏幕截图")
+        print("\n窗口管理:")
+        print("  列出窗口            - 显示所有窗口")
+        print("  激活 [窗口名]       - 激活指定窗口")
+        print("  最小化              - 最小化当前窗口")
+        print("  最大化              - 最大化当前窗口")
+        print("\n高级功能:")
         print("  搜索 [关键词]       - 浏览器搜索")
         print("  打开 [网址]         - 打开网页")
         print("  创建文件 [路径]     - 创建文件")
@@ -786,8 +1174,14 @@ class GodHandCLI:
         print("  创建文件夹 [路径]   - 创建目录")
         print("  复制 / 粘贴 / 全选  - 剪贴板操作")
         print("  获取鼠标位置        - 显示当前鼠标坐标")
+        print("  获取屏幕尺寸        - 显示分辨率")
+        print("  获取颜色 X, Y       - 获取像素颜色")
         print("  点击图片 [路径]     - 图片识别并点击")
+        print("  等待图片 [路径]     - 等待图片出现")
         print("  循环 N次 [指令]     - 重复执行指令")
+        print("  随机点击            - 随机位置点击")
+        print("  蜂鸣                - 播放提示音")
+        print("  通知 [消息]         - 显示系统通知")
         print("\n其他命令: help, exit, quit, record, play, script")
         print("=" * 60)
 
@@ -850,6 +1244,39 @@ class GodHandCLI:
                     self._run_script(script_file)
                     continue
 
+                # 配置命令
+                if user_input.lower().startswith('config '):
+                    parts = user_input[7:].strip().split(' ', 1)
+                    if len(parts) == 2:
+                        key, value = parts
+                        self.config.set(key, value)
+                        print(f"[配置] {key} = {value}")
+                    else:
+                        print("[配置] 当前配置:")
+                        for k, v in self.config.data.items():
+                            print(f"  {k}: {v}")
+                    continue
+
+                # 定时任务命令
+                if user_input.lower().startswith('schedule '):
+                    parts = user_input[9:].strip().split(' ', 1)
+                    if len(parts) == 2:
+                        time_str, cmd = parts
+                        self.scheduler.add(time_str, cmd)
+                    continue
+
+                if user_input.lower() == 'scheduler start':
+                    import threading
+                    self.scheduler.running = True
+                    t = threading.Thread(target=self.scheduler.run, args=(self.parser, self.executor))
+                    t.daemon = True
+                    t.start()
+                    continue
+
+                if user_input.lower() == 'scheduler stop':
+                    self.scheduler.stop()
+                    continue
+
                 # 解析并执行
                 actions = self.parser.parse(user_input)
 
@@ -902,7 +1329,9 @@ class GodHandCLI:
     def show_help(self):
         """显示帮助"""
         print("\n" + "=" * 60)
-        print("使用示例:")
+        print("GodHand CLI v3.2 - 使用帮助")
+        print("=" * 60)
+        print("\n基础示例:")
         print("  打开记事本")
         print("  打开记事本 然后输入Hello World 然后按回车")
         print("  点击 500, 500")
@@ -916,17 +1345,29 @@ class GodHandCLI:
         print("  复制 / 粘贴")
         print("  循环 3次 截图")
         print("\n录制与回放:")
-        print("  record           - 开始录制")
-        print("  stop             - 停止录制")
-        print("  play             - 回放录制")
-        print("  play myscript.json - 回放指定脚本")
+        print("  record            - 开始录制")
+        print("  record my.json    - 录制到指定文件")
+        print("  stop              - 停止录制")
+        print("  play              - 回放录制")
+        print("  play my.json      - 回放指定脚本")
         print("\n脚本执行:")
         print("  script myscript.txt - 执行脚本文件")
         print("  (脚本文件每行一个命令，#开头为注释)")
+        print("\n配置管理:")
+        print("  config            - 显示当前配置")
+        print("  config key value  - 设置配置项")
+        print("\n定时任务:")
+        print("  schedule HH:MM command  - 添加定时任务")
+        print("  scheduler start     - 启动调度器")
+        print("  scheduler stop      - 停止调度器")
         print("\n高级示例:")
         print("  打开计算器 然后输入1 然后按加号 然后输入1 然后按等于")
         print("  关闭 计算器")
         print("  点击图片 button.png")
+        print("  等待图片 loading.png")
+        print("  列出窗口")
+        print("  激活 记事本")
+        print("  通知 任务完成")
         print("=" * 60)
 
 
