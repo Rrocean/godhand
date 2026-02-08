@@ -809,11 +809,53 @@ class EnhancedExecutor:
     def _exec_open_app(self, action: Action) -> Dict:
         app = action.params.get("app", "")
         cmd = self._resolve_app(app)
+
         try:
+            # 特殊处理微信 - 尝试多种启动方式
+            if app.lower() in ['微信', 'wechat']:
+                return self._open_wechat()
+
+            # 普通应用启动
             subprocess.Popen(f'start "" {cmd}', shell=True)
             return {"success": True, "output": f"已启动: {app}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def _open_wechat(self) -> Dict:
+        """尝试多种方式打开微信"""
+        import os
+        from pathlib import Path
+
+        # 常见安装路径
+        possible_paths = [
+            Path(r"C:\Program Files (x86)\Tencent\WeChat\WeChat.exe"),
+            Path(r"C:\Program Files\Tencent\WeChat\WeChat.exe"),
+            Path(os.path.expanduser(r"~\AppData\Roaming\Tencent\WeChat\WeChat.exe")),
+            Path(r"D:\Program Files (x86)\Tencent\WeChat\WeChat.exe"),
+            Path(r"D:\Program Files\Tencent\WeChat\WeChat.exe"),
+        ]
+
+        # 1. 尝试直接找到可执行文件
+        for path in possible_paths:
+            if path.exists():
+                subprocess.Popen(f'"{path}"', shell=True)
+                return {"success": True, "output": f"已启动微信: {path}"}
+
+        # 2. 尝试使用 start 命令（会搜索开始菜单）
+        try:
+            subprocess.Popen('start WeChat', shell=True)
+            return {"success": True, "output": "已尝试启动微信（通过开始菜单）"}
+        except:
+            pass
+
+        # 3. 尝试使用 explorer 打开微信快捷方式
+        try:
+            subprocess.Popen('explorer shell:AppsFolder\Tencent.WeChat_', shell=True)
+            return {"success": True, "output": "已尝试启动微信（通过应用商店链接）"}
+        except:
+            pass
+
+        return {"success": False, "error": "找不到微信，请确认已安装或手动指定路径"}
 
     def _exec_close_app(self, action: Action) -> Dict:
         app = action.params.get("app", "")
