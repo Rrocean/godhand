@@ -403,15 +403,29 @@ class ConversationMemory:
 
 
 class EnhancedParser:
-    """增强版解析器 - 继承基础或智能解析器"""
+    """增强版解析器 - 使用LLM智能解析"""
 
     def __init__(self):
         self.knowledge = KnowledgeBase()
 
+        # 尝试导入LLM解析器
+        try:
+            from llm_parser import LLMParser
+            self.llm_parser = LLMParser()
+            self.has_llm = self.llm_parser.is_available()
+            if self.has_llm:
+                print("[INFO] LLM智能解析已启用")
+            else:
+                print("[INFO] LLM不可用，使用规则解析 (设置 GOOGLE_API_KEY 启用AI)")
+        except Exception as e:
+            print(f"[INFO] LLM解析器加载失败: {e}")
+            self.has_llm = False
+            self.llm_parser = None
+
     def parse(self, instruction: str) -> Tuple[List[Action], Optional[str]]:
         """
         解析指令，返回 (动作列表, 问答回复)
-        如果第二个返回值不为空，表示这是一个问答请求
+        优先使用LLM解析，LLM不可用时使用规则解析
         """
         instruction = instruction.strip()
         if not instruction:
@@ -426,44 +440,20 @@ class EnhancedParser:
             if answer and not answer.startswith("__"):
                 return [Action(ActionType.QUESTION, {"answer": answer}, "问答")], None
 
-        # 检查是否是复合指令（包含连接词）- 优先解析为动作
-        composite_markers = ['然后', '再', '接着', '并', '，', ',', '；', ';']
-        if any(m in instruction_lower for m in composite_markers):
+        # 特殊命令：帮助、自检、退出等
+        if instruction_lower in ["help", "?", "帮助", "check", "自检", "version", "版本"]:
             return self._basic_parse(instruction), None
 
-        # 检查是否是明确的动作指令（以动作关键词开头）
-        action_keywords = ['点击', '双击', '右键', '输入', '按', '快捷键',
-                          '移动', '等待', '截图', '搜索', '获取', '创建', '删除',
-                          '列出', '激活', '最小化', '最大化', '复制', '粘贴', '全选',
-                          '关闭']
-        if any(instruction_lower.startswith(kw) for kw in action_keywords):
-            return self._basic_parse(instruction), None
+        # 优先使用LLM解析（如果有）
+        if self.has_llm and self.llm_parser:
+            try:
+                actions = self.llm_parser.parse(instruction)
+                if actions and actions[0].type != ActionType.UNKNOWN:
+                    return actions, None
+            except Exception as e:
+                print(f"[WARN] LLM解析失败: {e}，使用规则解析")
 
-        # 微信操作指令优先于问答
-        wechat_keywords = ['发送消息', '发给', '发消息', '查找联系人', '搜索联系人', '微信']
-        if any(kw in instruction_lower for kw in wechat_keywords):
-            return self._basic_parse(instruction), None
-
-        # "打开" 开头需要特殊处理 - 检查是否是疑问句形式
-        if instruction_lower.startswith('打开'):
-            # 如果包含疑问词，可能是问句
-            if any(q in instruction_lower for q in ['吗', '？', '?', '如何', '怎么']):
-                answer = self.knowledge.answer(instruction)
-                if answer and not answer.startswith("__"):
-                    return [Action(ActionType.QUESTION, {"answer": answer}, "问答")], None
-            return self._basic_parse(instruction), None
-
-        # 检查是否是问答
-        answer = self.knowledge.answer(instruction)
-        if answer:
-            if answer == "__CHECK__":
-                return [Action(ActionType.QUESTION, {"operation": "check"}, "系统自检")], None
-            elif answer.startswith("__"):
-                pass
-            else:
-                return [Action(ActionType.QUESTION, {"answer": answer}, "问答")], None
-
-        # 使用基础规则解析
+        # 回退到规则解析
         return self._basic_parse(instruction), None
 
     def _basic_parse(self, instruction: str) -> List[Action]:
