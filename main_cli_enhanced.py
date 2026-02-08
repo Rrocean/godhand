@@ -25,6 +25,20 @@ from pathlib import Path
 # 添加核心模块路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Fix Windows encoding for Chinese characters
+if sys.platform == 'win32':
+    # Set console code page to UTF-8
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    kernel32.SetConsoleCP(65001)  # UTF-8
+    kernel32.SetConsoleOutputCP(65001)  # UTF-8
+
+    # Reconfigure stdout/stderr for UTF-8
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+    if hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8')
+
 # 尝试导入依赖
 try:
     import pyautogui
@@ -202,7 +216,7 @@ class KnowledgeBase:
         for category, items in self.knowledge.items():
             lines.append(f"\n【{category}】")
             for keyword, answer in items.items():
-                lines.append(f"  • {keyword}: {answer}")
+                lines.append(f"  * {keyword}: {answer}")
 
         lines.append("\n" + "=" * 60)
         lines.append("提示: 可以直接用自然语言问我，比如'怎么打开记事本'")
@@ -1017,24 +1031,22 @@ class GodHandCLIEnhanced:
     def show_banner(self):
         """显示启动横幅"""
         banner = """
-╔═══════════════════════════════════════════════════════════╗
-║                                                           ║
-║   GodHand CLI Enhanced v4.0                               ║
-║   智能GUI自动化平台 - 自由问答版                          ║
-║                                                           ║
-╚═══════════════════════════════════════════════════════════╝
+============================================================
+   GodHand CLI Enhanced v4.0
+   智能GUI自动化平台 - 自由问答版
+============================================================
 
 [功能特点]
-• 自由问答: 用自然语言询问如何使用，例如"怎么打开记事本"
-• 复合指令: 支持"打开XX然后输入YY"等多步骤操作
-• 功能自检: 输入'check'检查系统状态
-• 对话记忆: 记住您的使用习惯和常用命令
+* 自由问答: 用自然语言询问如何使用，例如"怎么打开记事本"
+* 复合指令: 支持"打开XX然后输入YY"等多步骤操作
+* 功能自检: 输入'check'检查系统状态
+* 对话记忆: 记住您的使用习惯和常用命令
 
 [快速开始]
-• 输入 'help' 查看所有功能
-• 输入 'check' 检查系统状态
-• 直接输入命令，如'打开记事本'
-• 问问题，如'如何截图'
+* 输入 'help' 查看所有功能
+* 输入 'check' 检查系统状态
+* 直接输入命令，如'打开记事本'
+* 问问题，如'如何截图'
 
 [提示] 输入 'exit' 退出程序
 """
