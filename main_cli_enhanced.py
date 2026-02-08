@@ -812,14 +812,15 @@ class EnhancedExecutor:
         # 获取可能的可执行文件名
         exe_name = self._get_exe_name(app)
 
-        # 先尝试直接启动
+        # 1. 先尝试使用 start 命令启动（不显示错误）
         try:
-            subprocess.Popen(f'start "" {exe_name}', shell=True)
-            return {"success": True, "output": f"已启动: {app}"}
+            result = subprocess.run(f'start "" {exe_name}', shell=True, capture_output=True, timeout=5)
+            if result.returncode == 0:
+                return {"success": True, "output": f"已启动: {app}"}
         except:
             pass
 
-        # 如果直接启动失败，自动搜索
+        # 2. 自动搜索可执行文件
         print(f"  [搜索] 正在搜索 {app} ...")
         found_path = self._search_app(exe_name)
 
@@ -829,6 +830,23 @@ class EnhancedExecutor:
                 return {"success": True, "output": f"已启动 {app}: {found_path}"}
             except Exception as e:
                 return {"success": False, "error": f"找到 {app} 但启动失败: {e}"}
+
+        # 3. 尝试使用 PowerShell 搜索应用
+        print(f"  [搜索] 使用 PowerShell 深度搜索...")
+        ps_path = self._search_with_powershell(exe_name)
+        if ps_path:
+            try:
+                subprocess.Popen(f'"{ps_path}"', shell=True)
+                return {"success": True, "output": f"已启动 {app}: {ps_path}"}
+            except Exception as e:
+                return {"success": False, "error": f"找到 {app} 但启动失败: {e}"}
+
+        # 4. 最后尝试用中文名直接启动
+        try:
+            subprocess.Popen(f'start "" "{app}"', shell=True)
+            return {"success": True, "output": f"已尝试启动: {app}"}
+        except:
+            pass
 
         return {"success": False, "error": f"找不到 {app}，请确认已安装"}
 
@@ -894,6 +912,40 @@ class EnhancedExecutor:
                     return matches[0]
             except:
                 continue
+
+        return None
+
+    def _search_with_powershell(self, exe_name: str) -> Optional[str]:
+        """使用 PowerShell 深度搜索应用"""
+        try:
+            # PowerShell 命令：搜索所有驱动器上的可执行文件
+            ps_cmd = f'''
+            Get-ChildItem -Path C:\,D:\,E:\ -Filter "{exe_name}" -Recurse -ErrorAction SilentlyContinue -Force |
+            Select-Object -First 1 -ExpandProperty FullName
+            '''
+            result = subprocess.run(
+                ['powershell', '-Command', ps_cmd],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except:
+            pass
+
+        # 尝试使用 Get-Command 查找
+        try:
+            result = subprocess.run(
+                ['powershell', '-Command', f'Get-Command {exe_name} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except:
+            pass
 
         return None
 
