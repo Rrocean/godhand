@@ -96,6 +96,7 @@ class ActionType(Enum):
     RANDOM_CLICK = "random_click"
     QUESTION = "question"  # 问答模式
     HELP = "help"  # 帮助请求
+    UNKNOWN = "unknown"
 
 
 @dataclass
