@@ -808,54 +808,94 @@ class EnhancedExecutor:
 
     def _exec_open_app(self, action: Action) -> Dict:
         app = action.params.get("app", "")
-        cmd = self._resolve_app(app)
 
+        # 获取可能的可执行文件名
+        exe_name = self._get_exe_name(app)
+
+        # 先尝试直接启动
         try:
-            # 特殊处理微信 - 尝试多种启动方式
-            if app.lower() in ['微信', 'wechat']:
-                return self._open_wechat()
-
-            # 普通应用启动
-            subprocess.Popen(f'start "" {cmd}', shell=True)
+            subprocess.Popen(f'start "" {exe_name}', shell=True)
             return {"success": True, "output": f"已启动: {app}"}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+        except:
+            pass
 
-    def _open_wechat(self) -> Dict:
-        """尝试多种方式打开微信"""
-        import os
-        from pathlib import Path
+        # 如果直接启动失败，自动搜索
+        print(f"  [搜索] 正在搜索 {app} ...")
+        found_path = self._search_app(exe_name)
 
-        # 常见安装路径
-        possible_paths = [
-            Path(r"C:\Program Files (x86)\Tencent\WeChat\WeChat.exe"),
-            Path(r"C:\Program Files\Tencent\WeChat\WeChat.exe"),
-            Path(os.path.expanduser(r"~\AppData\Roaming\Tencent\WeChat\WeChat.exe")),
-            Path(r"D:\Program Files (x86)\Tencent\WeChat\WeChat.exe"),
-            Path(r"D:\Program Files\Tencent\WeChat\WeChat.exe"),
+        if found_path:
+            try:
+                subprocess.Popen(f'"{found_path}"', shell=True)
+                return {"success": True, "output": f"已启动 {app}: {found_path}"}
+            except Exception as e:
+                return {"success": False, "error": f"找到 {app} 但启动失败: {e}"}
+
+        return {"success": False, "error": f"找不到 {app}，请确认已安装"}
+
+    def _get_exe_name(self, app: str) -> str:
+        """根据应用名获取可执行文件名"""
+        app_lower = app.lower()
+
+        # 常见应用映射
+        exe_map = {
+            '微信': 'WeChat.exe',
+            'wechat': 'WeChat.exe',
+            'qq': 'QQ.exe',
+            '钉钉': 'DingTalk.exe',
+            'dingtalk': 'DingTalk.exe',
+            '企业微信': 'WXWork.exe',
+            'tim': 'TIM.exe',
+            'vscode': 'Code.exe',
+            'code': 'Code.exe',
+            'chrome': 'chrome.exe',
+            'edge': 'msedge.exe',
+            'firefox': 'firefox.exe',
+            'notepad++': 'notepad++.exe',
+        }
+
+        if app_lower in exe_map:
+            return exe_map[app_lower]
+
+        # 如果已经有.exe后缀，直接使用
+        if app_lower.endswith('.exe'):
+            return app
+
+        # 否则加上.exe后缀
+        return f"{app}.exe"
+
+    def _search_app(self, exe_name: str) -> Optional[str]:
+        """自动搜索应用可执行文件"""
+        import glob
+
+        # 1. 使用 where 命令快速查找
+        try:
+            result = subprocess.run(['where', exe_name], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip().split('\n')[0].strip()
+        except:
+            pass
+
+        # 2. 使用 glob 搜索常见目录
+        search_patterns = [
+            rf"C:\Program Files (x86)\**\{exe_name}",
+            rf"C:\Program Files\**\{exe_name}",
+            rf"D:\Program Files (x86)\**\{exe_name}",
+            rf"D:\Program Files\**\{exe_name}",
+            rf"E:\Program Files (x86)\**\{exe_name}",
+            rf"E:\Program Files\**\{exe_name}",
+            os.path.expanduser(rf"~\AppData\**\{exe_name}"),
+            rf"C:\Users\*\AppData\**\{exe_name}",
         ]
 
-        # 1. 尝试直接找到可执行文件
-        for path in possible_paths:
-            if path.exists():
-                subprocess.Popen(f'"{path}"', shell=True)
-                return {"success": True, "output": f"已启动微信: {path}"}
+        for pattern in search_patterns:
+            try:
+                matches = glob.glob(pattern, recursive=True)
+                if matches:
+                    return matches[0]
+            except:
+                continue
 
-        # 2. 尝试使用 start 命令（会搜索开始菜单）
-        try:
-            subprocess.Popen('start WeChat', shell=True)
-            return {"success": True, "output": "已尝试启动微信（通过开始菜单）"}
-        except:
-            pass
-
-        # 3. 尝试使用 explorer 打开微信快捷方式
-        try:
-            subprocess.Popen('explorer shell:AppsFolder\Tencent.WeChat_', shell=True)
-            return {"success": True, "output": "已尝试启动微信（通过应用商店链接）"}
-        except:
-            pass
-
-        return {"success": False, "error": "找不到微信，请确认已安装或手动指定路径"}
+        return None
 
     def _exec_close_app(self, action: Action) -> Dict:
         app = action.params.get("app", "")
