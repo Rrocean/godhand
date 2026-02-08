@@ -139,6 +139,12 @@ class KnowledgeBase:
                 "如何创建文件夹": "输入 '创建文件夹 [路径]'，例如: 创建文件夹 myfolder",
                 "如何删除文件": "输入 '删除文件 [路径]'，例如: 删除文件 test.txt",
             },
+            "微信操作": {
+                "如何打开微信": "输入 '打开微信'",
+                "如何发送消息": "输入 '发送消息给 [联系人] 说 [内容]'，例如: 发送消息给张三说你好",
+                "如何查找联系人": "输入 '查找联系人 [姓名]'，例如: 查找联系人李四",
+                "微信复合操作": "输入 '打开微信 然后发送消息给XXX说你好'",
+            },
             "高级功能": {
                 "如何录制操作": "输入 'record' 开始录制，输入 'stop' 停止",
                 "如何回放录制": "输入 'play' 回放录制的内容",
@@ -433,6 +439,11 @@ class EnhancedParser:
         if any(instruction_lower.startswith(kw) for kw in action_keywords):
             return self._basic_parse(instruction), None
 
+        # 微信操作指令优先于问答
+        wechat_keywords = ['发送消息', '发给', '发消息', '查找联系人', '搜索联系人', '微信']
+        if any(kw in instruction_lower for kw in wechat_keywords):
+            return self._basic_parse(instruction), None
+
         # "打开" 开头需要特殊处理 - 检查是否是疑问句形式
         if instruction_lower.startswith('打开'):
             # 如果包含疑问词，可能是问句
@@ -486,6 +497,48 @@ class EnhancedParser:
         if match:
             app = match.group(1).strip()
             return [Action(ActionType.CLOSE_APP, {"app": app}, f"关闭 {app}")]
+
+        # 微信特定功能：发送消息给某人
+        # 模式: 发送消息给XXX / 给XXX发消息 / 微信发给XXX
+        wechat_msg_patterns = [
+            r'(?:发送|发)?(?:消息|信息)?\s*给\s*(.+?)(?:\s*(?:说|发送|发|:|：)\s*(.+))?$',
+            r'给\s*(.+?)\s*(?:发送|发)?(?:消息|信息)(?:\s*(?:说|内容是|:|：)\s*(.+))?$',
+            r'微信(?:发送|发)?(?:给|消息给)\s*(.+?)(?:\s*(?:说|发送|发|:|：)\s*(.+))?$',
+        ]
+        for pattern in wechat_msg_patterns:
+            match = re.search(pattern, instruction_lower)
+            if match:
+                contact = match.group(1).strip()
+                message = match.group(2).strip() if match.group(2) else ""
+                actions = []
+                # 打开微信
+                actions.append(Action(ActionType.OPEN_APP, {"app": "微信"}, "打开微信"))
+                actions.append(Action(ActionType.WAIT, {"seconds": 3}, "等待微信启动"))
+                # 点击搜索/查找
+                actions.append(Action(ActionType.HOTKEY, {"keys": ["ctrl", "f"]}, "打开搜索"))
+                actions.append(Action(ActionType.WAIT, {"seconds": 1}, "等待搜索框"))
+                # 输入联系人
+                actions.append(Action(ActionType.TYPE, {"text": contact}, f"搜索联系人: {contact}"))
+                actions.append(Action(ActionType.WAIT, {"seconds": 1}, "等待搜索结果"))
+                actions.append(Action(ActionType.PRESS_KEY, {"key": "enter"}, "选择联系人"))
+                actions.append(Action(ActionType.WAIT, {"seconds": 1}, "等待聊天窗口"))
+                # 如果有消息内容，输入并发送
+                if message:
+                    actions.append(Action(ActionType.TYPE, {"text": message}, f"输入消息: {message}"))
+                    actions.append(Action(ActionType.PRESS_KEY, {"key": "enter"}, "发送消息"))
+                return actions
+
+        # 微信：查找联系人/搜索联系人
+        contact_search = re.search(r'(?:查找|搜索|找)(?:微信)?(?:联系人|好友|朋友)?\s*(.+)', instruction_lower)
+        if contact_search:
+            contact = contact_search.group(1).strip()
+            return [
+                Action(ActionType.OPEN_APP, {"app": "微信"}, "打开微信"),
+                Action(ActionType.WAIT, {"seconds": 2}, "等待微信启动"),
+                Action(ActionType.HOTKEY, {"keys": ["ctrl", "f"]}, "打开搜索"),
+                Action(ActionType.WAIT, {"seconds": 0.5}, "等待搜索框"),
+                Action(ActionType.TYPE, {"text": contact}, f"搜索: {contact}"),
+            ]
 
         # 点击坐标
         match = re.search(r'(?:点击|单击).*?(\d+)\s*[,，]\s*(\d+)', instruction_lower)
@@ -687,6 +740,8 @@ class EnhancedExecutor:
             'vscode': 'code',
             '文件资源管理器': 'explorer.exe',
             '资源管理器': 'explorer.exe',
+            '微信': 'WeChat.exe',
+            'wechat': 'WeChat.exe',
         }
         self.key_map = {
             '回车': 'enter',
