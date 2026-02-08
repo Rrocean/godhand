@@ -477,10 +477,10 @@ class EnhancedParser:
         if "然后" in instruction_lower or "再" in instruction_lower or "接着" in instruction_lower:
             return self._parse_composite(instruction_lower)
 
-        # 打开应用
-        match = re.search(r'(?:打开|启动|运行)\s*(.+)', instruction_lower)
+        # 打开应用 - 支持完整路径 "打开 C:\路径\app.exe"
+        match = re.search(r'(?:打开|启动|运行)\s+(.+)', instruction_lower)
         if match:
-            app = match.group(1).strip()
+            app = match.group(1).strip().strip('"\'')  # 去除引号
             return [Action(ActionType.OPEN_APP, {"app": app}, f"打开 {app}")]
 
         # 关闭应用
@@ -808,6 +808,17 @@ class EnhancedExecutor:
 
     def _exec_open_app(self, action: Action) -> Dict:
         app = action.params.get("app", "")
+
+        # 0. 如果提供了完整路径（包含 \ 或 / 或 .exe），直接使用
+        if '\\' in app or '/' in app or '.exe' in app.lower():
+            # 去除可能的引号
+            clean_path = app.strip('"\'')
+            if os.path.exists(clean_path):
+                try:
+                    subprocess.Popen(f'"{clean_path}"', shell=True)
+                    return {"success": True, "output": f"已启动: {clean_path}"}
+                except Exception as e:
+                    return {"success": False, "error": f"启动失败: {e}"}
 
         # 获取可能的可执行文件名
         exe_name = self._get_exe_name(app)
