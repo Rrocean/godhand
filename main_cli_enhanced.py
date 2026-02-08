@@ -831,7 +831,16 @@ class EnhancedExecutor:
         except:
             pass
 
-        # 2. 自动搜索可执行文件
+        # 2. 搜索开始菜单快捷方式
+        shortcut = self._find_start_menu_shortcut(app)
+        if shortcut:
+            try:
+                subprocess.Popen(f'"{shortcut}"', shell=True)
+                return {"success": True, "output": f"已启动 {app} (通过开始菜单)"}
+            except Exception as e:
+                pass
+
+        # 3. 自动搜索可执行文件
         print(f"  [搜索] 正在搜索 {app} ...")
         found_path = self._search_app(exe_name)
 
@@ -923,6 +932,51 @@ class EnhancedExecutor:
                     return matches[0]
             except:
                 continue
+
+        return None
+
+    def _find_start_menu_shortcut(self, app: str) -> Optional[str]:
+        """搜索开始菜单中的快捷方式"""
+        import os
+
+        # 可能的应用名称变体
+        app_names = [app]
+        app_lower = app.lower()
+
+        # 常见中英文映射
+        name_map = {
+            '微信': ['微信', 'WeChat'],
+            'wechat': ['微信', 'WeChat'],
+            'qq': ['QQ'],
+            '钉钉': ['钉钉', 'DingTalk'],
+            'chrome': ['Chrome', 'Google Chrome'],
+            'edge': ['Edge', 'Microsoft Edge'],
+            'vscode': ['Visual Studio Code', 'VS Code', 'Code'],
+        }
+
+        if app_lower in name_map:
+            app_names = name_map[app_lower]
+
+        # 开始菜单路径
+        start_menu_paths = [
+            os.path.expandvars(r'%APPDATA%\Microsoft\Windows\Start Menu\Programs'),
+            os.path.expandvars(r'%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs'),
+        ]
+
+        for base_path in start_menu_paths:
+            if not os.path.exists(base_path):
+                continue
+
+            for root, dirs, files in os.walk(base_path):
+                for file in files:
+                    if not file.endswith('.lnk'):
+                        continue
+
+                    # 检查文件名是否匹配
+                    file_lower = file.lower()
+                    for name in app_names:
+                        if name.lower() in file_lower:
+                            return os.path.join(root, file)
 
         return None
 
