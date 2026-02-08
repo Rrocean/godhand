@@ -57,14 +57,18 @@ def run_cli():
 def run_web():
     """运行Web界面"""
     try:
-        from web_ui import GodHandWebUI, create_dashboard_template
+        # 尝试使用简化版Web UI
+        from web_ui_simple import app
         print_banner()
-        create_dashboard_template()
-        ui = GodHandWebUI(host='0.0.0.0', port=5000)
-        ui.run()
+        print("=" * 60)
+        print("GodHand Web UI v4.0")
+        print("=" * 60)
+        print("访问地址: http://localhost:5000")
+        print("=" * 60)
+        app.run(host='0.0.0.0', port=5000, debug=False)
     except ImportError as e:
         print(f"[ERROR] 无法启动Web UI: {e}")
-        print("安装依赖: pip install flask flask-socketio")
+        print("安装依赖: pip install flask")
 
 
 def run_command(command: str):
